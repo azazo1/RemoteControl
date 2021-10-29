@@ -10,7 +10,7 @@ class Config:
     readRange = 32768  # 套接字一次读取长度（字节）
     longestCommand = 2 ** 15  # 最长命令长度（字节）
     socketTimeoutSec = 5  # 套接字超时时间（秒）
-    verifyTimeoutMilli = 10000  # 鉴权过期时间（毫秒）
+    authenticationTimeoutMilli = 10000  # 鉴权过期时间（毫秒）
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
     key = "azazo1Bestbdsrjpgaihbaneprjaerg".encode(encoding)  # 传输加密密钥

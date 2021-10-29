@@ -19,14 +19,14 @@ def filterNotTrue(obj: List[bytes]):
     return list(filter(lambda a: bool(a) and not a.isspace(), obj))
 
 
-class VerifyError(Exception):
+class AuthenticateError(Exception):
     pass
 
 
 class ClientManager:
     def __init__(self, client: socket.socket, address: tuple):
         self.alive = True
-        self.verified = None  # None:未鉴权 False:鉴权失败 True:鉴权成功
+        self.authenticated = None  # None:未鉴权 False:鉴权失败 True:鉴权成功
         self.address = address
         self.socket = client
         self.lineBuf: bytes = b''  # 未接收完全的单行
@@ -39,7 +39,7 @@ class ClientManager:
     def _initSocket(self):
         self.socket.setblocking(False)
 
-    def verify(self, line: bytes):
+    def authenticate(self, line: bytes):
         """
         鉴权，验证此连接是否有效
         :param line:序列化的 JSON 字典
@@ -57,18 +57,18 @@ class ClientManager:
             md5_: str = obj.get('md5')
             if (name == Config.name
                     and version == Config.version
-                    and (time.time() * 1000 // 1 < Config.verifyTimeoutMilli + stamp)
+                    and (time.time() * 1000 // 1 < Config.authenticationTimeoutMilli + stamp)
                     and md5((Config.name + Config.version + Config.key.decode(Config.encoding) + str(
                         stamp)).encode(Config.encoding)).hexdigest() == md5_
             ):
-                self.verified = True
+                self.authenticated = True
                 print(f'{self.address} 登录成功', file=self.output)
                 self.sendLine(b'1', encrypt=False)
             else:
-                raise VerifyError()
+                raise AuthenticateError()
         except Exception as e:
             print(f'{self.address} 登录失败 {type(e)}', file=self.output)
-            self.verified = False
+            self.authenticated = False
             self.sendLine(b'0', encrypt=False)
 
     def loop(self):
@@ -77,9 +77,9 @@ class ClientManager:
             line = self.readLine()
             if not line or line.isspace():
                 continue
-            if self.verified is None:
-                self.verify(line)
-            elif self.verified:
+            if self.authenticated is None:
+                self.authenticate(line)
+            elif self.authenticated:
                 command = Encryptor.decryptFromBase64(line)
                 command = command.decode(Config.encoding)
                 process, queue = Executor.subProcessExec(command)
@@ -227,7 +227,7 @@ class SocketServer:
             if not clientManager.alive:
                 delete.append(address)
         for address in delete:
-            print(f'{address} 断开', file=self.output) if self.clientManagers[address].verified else None
+            print(f'{address} 断开', file=self.output) if self.clientManagers[address].authenticated else None
             self.clientManagers.pop(address)
 
     def getClientManager(self, address: tuple):
