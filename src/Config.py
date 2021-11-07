@@ -10,12 +10,14 @@ class Config:
     readRange = 32768  # 套接字一次读取长度（字节）
     longestCommand = 2 ** 15  # 最长命令长度（字节）
     socketTimeoutSec = 5  # 套接字超时时间（秒）
+    longestShowTextTime = 10000 # showText命令最长显示时间（毫秒）
     authenticationTimeoutMilli = 10000  # 鉴权过期时间（毫秒）
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
+    usingMultiprocessing = False # 是否使用多进程（慢）
     key = "azazo1Bestbdsrjpgaihbaneprjaerg".encode(encoding)  # 传输加密密钥
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
-    processQueueMaxsize = 100  # 进程Queue最大传送数量
+    processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
     fileTransportMaxSize = 8192  # 传输文件内容最大大小（字节）
     variablesFile = 'vars.json'
     initialVars = {

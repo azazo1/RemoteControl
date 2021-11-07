@@ -10,7 +10,7 @@ from hashlib import md5
 from threading import Thread
 from typing import List, Dict
 
-from src.CommandExecutor import Executor, MyProcess
+from src.CommandExecutor import Executor, MyProcess, MyThreadQueue
 from src.Config import Config
 from src.Encryptor import Encryptor
 
@@ -22,6 +22,18 @@ def filterNotTrue(obj: List[bytes]):
 class AuthenticateError(Exception):
     pass
 
+def get_host_ip():
+    """
+    查询本机ip地址
+    """
+    try:
+        s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8',80))
+        ip=s.getsockname()[0]
+    finally:
+        s.close()
+
+    return ip
 
 class ClientManager:
     def __init__(self, client: socket.socket, address: tuple):
@@ -82,17 +94,32 @@ class ClientManager:
             elif self.authenticated:
                 command = Encryptor.decryptFromBase64(line)
                 command = command.decode(Config.encoding)
-                process, queue = Executor.subProcessExec(command)
-                Thread(target=self.handleTask, args=(process, queue), daemon=True).start()  # 交给子线程处理任务4
+                if Config.usingMultiprocessing:
+                    process, queue = Executor.subProcessExec(command)
+                    Thread(target=self.handleTaskOfProcess, args=(process, queue), daemon=True).start()  # 交给子线程处理任务
+                else:
+                    thread, queue = Executor.threadExec(command)
+                    Thread(target=self.handleTaskOfThread, args=(thread, queue), daemon=True).start()  # 交给子线程处理任务
             else:
                 self.close()
 
-    def handleTask(self, process: MyProcess, queue: multiprocessing.Queue):
-        """等待任务执行完成，并将结果发送至客户端"""
+    def handleTaskOfProcess(self, process: MyProcess, queue: multiprocessing.Queue):
+        """等待任务执行完成，并将结果发送至客户端 多进程模式"""
         while process.is_alive():
             if not queue.empty():
                 get = queue.get()
                 self.sendLine(str(get).encode(Config.encoding))
+
+    def handleTaskOfThread(self, process: Thread, queue: MyThreadQueue):
+        """等待任务执行完成，并将结果发送至客户端 多线程模式"""
+        while process.is_alive():
+            if queue:
+                get = queue.get()
+                self.sendLine(str(get).encode(Config.encoding))
+            time.sleep(1 / Config.loopingRate)
+        while queue:  # 尝试将剩余的发送
+            get = queue.get()
+            self.sendLine(str(get).encode(Config.encoding))
 
     def sendLine(self, data: bytes, encrypt: bool = True):
         """发送一条转换为base64编码的消息"""
@@ -210,7 +237,7 @@ class SocketServer:
         self.socket.bind(("0.0.0.0", 2004))
         self.socket.listen()
         self.socket.setblocking(False)
-        print(f'服务器开启，开启于{(socket.gethostbyname(socket.gethostname()), self.socket.getsockname()[-1])}',
+        print(f'服务器开启，开启于{(get_host_ip(), self.socket.getsockname()[-1])}',
               file=self.output)
 
     def accept(self):

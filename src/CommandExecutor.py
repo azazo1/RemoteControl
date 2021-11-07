@@ -6,7 +6,9 @@ import os.path as osPath
 import re
 import subprocess
 import sys
+import threading
 import time
+from threading import Thread
 import tkinter as tk
 import urllib.parse as upa
 import webbrowser
@@ -79,6 +81,28 @@ class MyProcess(multiprocessing.Process):
         self.queue = queue
 
 
+class MyThreadQueue(list):
+    def __init__(self):
+        super().__init__()
+        self.lock = threading.Event()
+
+    def put(self, obj):
+        self.append(obj)
+        self.notify()
+
+    def get(self):
+        return self.pop(0)
+
+    def wait(self):
+        try:
+            self.lock.wait(10)
+        except Exception:
+            pass
+
+    def notify(self):
+        self.lock.set()
+
+
 class Executor:
     class CommandAnalyser:
         """解析json格式的命令"""
@@ -96,6 +120,7 @@ class Executor:
     _functionMap: Dict[str, Callable[[Dict[str, str], multiprocessing.Queue], Union[int, str, Union[str, int]]]] = None
     _analyser = CommandAnalyser()
     processes: List[multiprocessing.Process] = []
+    threads: List[Thread] = []
     output = sys.stdout
     lockScreenPath = searchLockScreenDirPath()
 
@@ -109,14 +134,14 @@ class Executor:
             cls.processes.remove(p)
 
     @classmethod
-    def exec(cls, command: str, queue: multiprocessing.Queue = None) -> int:
+    def exec(cls, command: str, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         :param queue: 任务执行返回信息
         :param command:
         :return: 执行命令，返回执行信息码 -1:找不到对应命令type
         """
         if not command:
-            queue.put(-1) if queue else None
+            queue.put(-1) if queue is not None else None
             return -1
         functionMap = cls.getFunctionMap()
         try:
@@ -124,13 +149,13 @@ class Executor:
             func = functionMap.get(cls._analyser.getCommandType(cmdObj))
         except (JSONDecodeError, AttributeError):
             print('无效命令:', command, file=cls.output)
-            queue.put(-1) if queue else None
+            queue.put(-1) if queue is not None else None
             return -1
         if func:
             return func(cmdObj, queue)
         else:
             print('无效命令:', command, file=cls.output)
-            queue.put(-1) if queue else None
+            queue.put(-1) if queue is not None else None
             return -1
 
     @classmethod
@@ -143,12 +168,21 @@ class Executor:
         return process, queue
 
     @classmethod
+    def threadExec(cls, command: str) -> Tuple[Thread, List]:
+        cls.clearProcesses()
+        queue = MyThreadQueue()
+        thread = Thread(target=cls.exec, args=(command, queue), daemon=True)
+        cls.threads.append(thread)
+        thread.start()
+        return thread, queue
+
+    @classmethod
     def closeProcesses(cls, wait=True):
         for process in cls.processes:
             process.join() if wait else process.terminate()
 
     @classmethod
-    def test(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def test(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         测试
         :param cmdObj: content:需要输出的文字
@@ -161,11 +195,11 @@ class Executor:
             result = 1
         else:
             result = 0
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def dir(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def dir(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         查询指定目录下文件
         :param cmdObj: path:需要查询的目录
@@ -192,11 +226,11 @@ class Executor:
         else:
             outcome = 0
             result = 0
-        queue.put(outcome) if queue else None
+        queue.put(outcome) if queue is not None else None
         return result
 
     @classmethod
-    def showText(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def showText(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         显示一段文字在屏幕上
         :param cmdObj:  content:被显示文字(str),
@@ -207,30 +241,42 @@ class Executor:
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         content = cmdObj.get("content")
         showTime = cmdObj.get('showTime') or 2000
-        if content and showTime:
+        if content and showTime and showTime <= Config.longestShowTextTime:
             showTime = int(showTime)
             root = tk.Tk()
             root.attributes('-topmost', True)
             root.attributes('-fullscreen', True)
-            root.protocol('WM_DELETE_WINDOW', lambda *a: None)
-            frame = tk.LabelFrame(root, text=content)
-            copyButton = tk.Button(frame, text='复制')
+            frame = tk.Frame(root)
+            tk.Frame(frame,height=50).pack(side=tk.TOP) # 顶部空白
+            tk.Frame(frame,width=50).pack(side=tk.LEFT) # 左部空白
+            tk.Frame(frame,width=50).pack(side=tk.RIGHT) # 右部空白
+            text = tk.Text(frame)
+            text.insert(0.0,content)
+            text.pack(side=tk.TOP,fill=tk.BOTH, expand=True)
+            tk.Frame(frame,height=50).pack(side=tk.BOTTOM) # 下部空白
+            closeButton = tk.Button(frame, text='关闭', command=lambda *a:root.destroy())
+            closeButton.pack(side=tk.BOTTOM)
+            copyButton = tk.Button(frame, text='复制', command=lambda *a:pyperclip.copy(content))
             copyButton.pack(side=tk.BOTTOM)
-            frame.place(x=root.winfo_screenwidth() // 2 - frame.winfo_width() // 2,
-                        y=root.winfo_screenheight() // 2 - frame.winfo_height() // 2)
+            frame.place(x=0,y=0,relheight=1,relwidth=1)
+            root.update()
             startTime = time.time()
-            queue.put(1) if queue else None  # 提前报告让客户端不再等待
-            while startTime + showTime / 1000 >= time.time():
-                root.update()
-            root.destroy()
+            queue.put(1) if queue is not None else None  # 提前报告让客户端不再等待
+            root.attributes('-topmost', False)
+            try:
+                while startTime + showTime / 1000 >= time.time():
+                    root.update()
+                root.destroy()
+            except Exception:
+                pass
             result = 1
         else:
             result = 0
-            queue.put(result) if queue else None
+            queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def getDisks(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def getDisks(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         获取电脑上所有硬盘盘符
         :param cmdObj: nothing
@@ -243,11 +289,11 @@ class Executor:
             if osPath.exists(char + ":"):
                 disks.append(char + ":")
         result = 1
-        queue.put(json.dumps(disks)) if queue else None
+        queue.put(json.dumps(disks)) if queue is not None else None
         return result
 
     @classmethod
-    def lockScreen(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def lockScreen(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         使用LockScreen锁定电脑屏幕
         :param cmdObj: maxWrongTimes:密码最多错误次数(int), password:密码(str)
@@ -278,15 +324,15 @@ class Executor:
             with open(conPath, 'w') as w:
                 json.dump(con, w)
             result = 1
-            queue.put(result) if queue else None
+            queue.put(result) if queue is not None else None
             os.system(f'"LockScreen.py"')
         else:
             result = 0
-            queue.put(result) if queue else None
+            queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def unlockScreen(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def unlockScreen(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         解锁屏幕
         :param cmdObj: nothing
@@ -301,11 +347,11 @@ class Executor:
             result = 1
         except Exception:
             result = 0
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def closeProgram(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def closeProgram(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         关闭指定程序，通过程序名称或pid
         :param cmdObj:  pid:指定进程pid(int), name:指定进程名称(str)
@@ -322,11 +368,11 @@ class Executor:
             result = 0 if os.system(f'taskkill /im "{name}" /F') else 1
         else:
             result = 0
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def killTaskmgr(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def killTaskmgr(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         强制关闭任务管理器（单次）
         :param cmdObj: nothing
@@ -335,11 +381,11 @@ class Executor:
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         result = 0 if os.system('wmic process where name="Taskmgr.exe" delete') else 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def blockTaskmgr(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def blockTaskmgr(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         禁止任务管理器启动（持续）
         :param cmdObj: block:是否禁止任务管理器启动(bool)
@@ -352,11 +398,11 @@ class Executor:
         if block is not None:
             TaskmgrKiller.setKill(block)
             result = 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def clipboard(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> Union[str, int]:
+    def clipboard(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> Union[str, int]:
         """
         设置剪切板
         :param cmdObj:  action:要执行的动作，可填写（右边字典的键）：{"clear":”清空“,"set":”设置剪贴板内容“, "get":"获取剪贴板内容"}
@@ -381,11 +427,11 @@ class Executor:
             result = 1
         else:
             result = 0
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def memoryLook(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> str:
+    def memoryLook(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> str:
         """
         查看内存使用情况
         :param cmdObj:  nothing
@@ -395,11 +441,11 @@ class Executor:
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         men = psutil.virtual_memory()
         result = json.dumps((men.available, men.total))
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def queryProcess(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> str:
+    def queryProcess(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> str:
         """
         查看进程及其简单信息
         :param cmdObj:  all:是否显示全部的进程信息(bool),
@@ -423,11 +469,11 @@ class Executor:
                 elif name:
                     result = os.popen(f'tasklist /FI "imagename eq {name}"').read()
         result = result if '=' in result else "None"
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def startProgram(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def startProgram(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         启动某一可执行文件
         :param cmdObj: executable:可执行文件路径(str), args:执行参数（可不填）(str)
@@ -441,11 +487,11 @@ class Executor:
         if executable and osPath.exists(executable):
             subprocess.Popen(executable=executable, args=(args or '',), creationflags=subprocess.CREATE_NEW_CONSOLE)
             result = 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def surfWebsite(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def surfWebsite(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         用浏览器访问一个网页
         :param cmdObj:  url:需要访问的网址（可不填写）(str),
@@ -465,11 +511,11 @@ class Executor:
                 result = int(browser.open(url or f"https://www.baidu.com/s?{upa.urlencode(dict(wd=str(search)))}"))
         except webbrowser.Error:
             pass
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def fileDetail(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> dict:
+    def fileDetail(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> dict:
         """
         获取文件信息
         :param cmdObj: path: 文件位置(str)
@@ -490,11 +536,11 @@ class Executor:
                 data = r.read()
             result["md5"] = MD5(data).hexdigest()
             result["available"] = True
-        queue.put(json.dumps(result)) if queue else None
+        queue.put(json.dumps(result)) if queue is not None else None
         return result
 
     @classmethod
-    def fileTransport(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def fileTransport(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         传送部分文件
         :param cmdObj:  action:执行的动作（可为后面字典的键）(str)
@@ -609,11 +655,11 @@ class Executor:
                 )
                 result = 1
 
-        queue.put(queueResult) if queue else None
+        queue.put(queueResult) if queue is not None else None
         return result
 
     @classmethod
-    def cancelShutdown(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def cancelShutdown(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         取消关机 todo 实现失败
         :param cmdObj: nothing
@@ -622,11 +668,11 @@ class Executor:
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         result = 0 if os.system('shutdown -a') else 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def launchOnStart(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def launchOnStart(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         设置开机自启动
         :param cmdObj: launch:是否开机自启动
@@ -645,11 +691,11 @@ class Executor:
                 result = 0 if os.system(  # 删除旧任务(覆盖)
                     f'''schtasks /delete /tn RemoteControl /f'''
                 ) else 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def shutdown(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def shutdown(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         关机与定时关机
         :param cmdObj:  action(str): 从 close, restart, cancel, logout, rest 中选一个
@@ -679,11 +725,11 @@ class Executor:
                 delaySwitch = f"-t {delay}" if delay else ""
                 print(f'shutdown {switch} {delaySwitch}')
                 result = 0 if os.system(f'shutdown {switch} {delaySwitch}') else 1
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod
-    def inputLock(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def inputLock(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         锁定输入 todo 锁定键盘模块
         :param cmdObj:  keyboard(bool): 是否锁定键盘
@@ -695,11 +741,11 @@ class Executor:
         mouse = cmdObj.get('mouse')
         if mouse is not None:
             InputLocker.setMouse(mouse)
-        queue.put(1) if queue else None
+        queue.put(1) if queue is not None else None
         return 1
 
     @classmethod
-    def takePhoto(cls, cmdObj: Dict, queue: multiprocessing.Queue = None) -> int:
+    def takePhoto(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         拍照或截屏并发送至邮箱
         :param cmdObj:  action(str): 从 photo, shortcut 中选择
@@ -720,7 +766,7 @@ class Executor:
             result = 1
         else:
             result = 0
-        queue.put(result) if queue else None
+        queue.put(result) if queue is not None else None
         return result
 
     @classmethod

@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # pprint.pprint(send(b'{"type":"test","content":"D:"}'))
 
-    pprint.pprint(json.loads(send(b'{"type":"dir","path":"D:/Azazo1-Files"}')))
+    pprint.pprint(json.loads(send(b'{"type":"dir","path":"D:/"}')))
 
     # pprint.pprint(send(b'{"type":"showText","content":"D:","showTime":3000}'))
 
