@@ -247,18 +247,18 @@ class Executor:
             root.attributes('-topmost', True)
             root.attributes('-fullscreen', True)
             frame = tk.Frame(root)
-            tk.Frame(frame,height=50).pack(side=tk.TOP) # 顶部空白
-            tk.Frame(frame,width=50).pack(side=tk.LEFT) # 左部空白
-            tk.Frame(frame,width=50).pack(side=tk.RIGHT) # 右部空白
+            tk.Frame(frame, height=50).pack(side=tk.TOP)  # 顶部空白
+            tk.Frame(frame, width=50).pack(side=tk.LEFT)  # 左部空白
+            tk.Frame(frame, width=50).pack(side=tk.RIGHT)  # 右部空白
             text = tk.Text(frame)
-            text.insert(0.0,content)
-            text.pack(side=tk.TOP,fill=tk.BOTH, expand=True)
-            tk.Frame(frame,height=50).pack(side=tk.BOTTOM) # 下部空白
-            closeButton = tk.Button(frame, text='关闭', command=lambda *a:root.destroy())
+            text.insert(0.0, content)
+            text.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            tk.Frame(frame, height=50).pack(side=tk.BOTTOM)  # 下部空白
+            closeButton = tk.Button(frame, text='关闭', command=lambda *a: root.destroy())
             closeButton.pack(side=tk.BOTTOM)
-            copyButton = tk.Button(frame, text='复制', command=lambda *a:pyperclip.copy(content))
+            copyButton = tk.Button(frame, text='复制', command=lambda *a: pyperclip.copy(content))
             copyButton.pack(side=tk.BOTTOM)
-            frame.place(x=0,y=0,relheight=1,relwidth=1)
+            frame.place(x=0, y=0, relheight=1, relwidth=1)
             root.update()
             startTime = time.time()
             queue.put(1) if queue is not None else None  # 提前报告让客户端不再等待
@@ -812,8 +812,28 @@ class InputLocker:
 
     @classmethod
     def handle(cls):
-        if readVar().get('mouseLock'):
+        var = readVar()
+        if var and var.get('mouseLock'):
             cls.mouseController.position = (0, 0)
+
+
+class BackgroundStopper:
+    """
+    通过 文件 关闭后台 RemoteControl
+    """
+
+    @staticmethod
+    def checkVars():
+        return osPath.exists(Config.variablesFile)
+
+    @classmethod
+    def canStop(cls):
+        return not cls.checkVars()
+
+
+class FileStoppingEvent(Exception):
+    """通过文件关闭后台RemoteControl实例时产生"""
+    pass
 
 
 class TaskmgrKiller:
@@ -830,9 +850,9 @@ class TaskmgrKiller:
     @classmethod
     def readKill(cls):
         if cls.lastReadTime + cls.readSeparate < time.time():
-            var = readVar()
             cls.lastReadTime = time.time()
-            return var.get('blockTaskmgr')
+            ifKill = readVar().get('blockTaskmgr')
+            return ifKill
 
     @classmethod
     def handle(cls):

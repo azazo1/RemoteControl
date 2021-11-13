@@ -6,11 +6,6 @@ import sys
 
 
 def main():
-    if hasInstance():
-        return
-    init()
-    a = EventBus()
-    a.loop()
     clearVar()
 
 

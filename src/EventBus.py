@@ -2,7 +2,7 @@
 import sys
 import time
 
-from src.CommandExecutor import Executor, TaskmgrKiller, InputLocker
+from src.CommandExecutor import Executor, TaskmgrKiller, InputLocker, BackgroundStopper, FileStoppingEvent
 from src.Config import Config
 from src.ServerSocket import SocketServer
 
@@ -16,12 +16,16 @@ class EventBus:
     def loop(self):
         try:
             while self.alive:
+                if BackgroundStopper.canStop():
+                    raise FileStoppingEvent()
                 self.server.handle()
                 TaskmgrKiller.handle()
                 InputLocker.handle()
                 time.sleep(1 / Config.loopingRate)
         except KeyboardInterrupt:
             print('用户关闭了脚本', file=self.output)
+        except FileStoppingEvent:
+            print('用户通过文件关闭了脚本', file=self.output)
         finally:
             self.close()
 
