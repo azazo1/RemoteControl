@@ -1,7 +1,6 @@
 # coding=utf-8
 import json
 import socket
-import sys
 import traceback
 from PIL import Image, ImageTk
 from win32gui import GetForegroundWindow as getWindow

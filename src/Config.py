@@ -7,7 +7,9 @@ from typing import Optional
 class Config:
     name = 'RemoteControl'  # 此项目名
     version = '1.0'  # 当前版本号
-    user = ('azazo1@qq.com', 'vwvdyusgiqkmbaei')  # 图片发送邮箱 SMTP 账号密码
+    originPath = '.'  # 启动路径（会变化）
+    user = ('', '')  # 图片发送邮箱 SMTP 账号密码
+    password = 'MyComputerAzazo1'  # 锁屏默认密码
     readRange = 32768  # 套接字一次读取长度（字节）
     longestCommand = 2 ** 15  # 最长命令长度（字节）
     socketTimeoutSec = 5  # 套接字超时时间（秒）
@@ -37,6 +39,8 @@ def init():
             Config.initialVars
         ).encode(Config.encoding)
         w.write(data)
+    Config.originPath = os.popen("chdir").read().rstrip()
+    print('初始路径:', Config.originPath)
 
 
 def readVar() -> Optional[dict]:
@@ -58,9 +62,10 @@ def changeVar(changes: dict):
 
 def clearVar():
     try:
+        os.chdir(Config.originPath)
         os.remove(Config.variablesFile)
     except FileNotFoundError:
-        pass
+        print('清除失败')
 
 
 def hasInstance() -> bool:

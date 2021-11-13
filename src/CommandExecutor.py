@@ -3,7 +3,6 @@ import json
 import multiprocessing
 import os
 import os.path as osPath
-import re
 import subprocess
 import sys
 import threading
@@ -20,7 +19,6 @@ import psutil
 import pynput.keyboard
 import pyperclip
 
-from src import PictureSend
 from src.Config import Config, changeVar, readVar
 from src.Encryptor import Encryptor
 from src.PictureSend import PictureSender
@@ -31,6 +29,11 @@ def searchLockScreenDirPath():
         if 'LockScreen' in dirs:
             return osPath.join(path, 'LockScreen')
     return None
+
+
+def firstRun(args: List[str]):
+    for arg in args:
+        Executor.subProcessExec(arg) if Config.usingMultiprocessing else Executor.threadExec(arg)
 
 
 class FileTransportHelper:
@@ -122,7 +125,14 @@ class Executor:
     processes: List[multiprocessing.Process] = []
     threads: List[Thread] = []
     output = sys.stdout
-    lockScreenPath = searchLockScreenDirPath()
+    _lockScreenPath = None
+
+    @classmethod
+    def getLockScreenPath(cls):
+        if not cls._lockScreenPath:
+            cls._lockScreenPath = searchLockScreenDirPath()
+            print("LockScreen 组件加载成功:", osPath.realpath(cls._lockScreenPath), file=cls.output)
+        return cls._lockScreenPath
 
     @classmethod
     def clearProcesses(cls):
@@ -301,10 +311,9 @@ class Executor:
         :return: 1:成功, 0:失败
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
-        maxWrongTimes = cmdObj.get('maxWrongTimes')
-        password: str = cmdObj.get('password')
+        maxWrongTimes = cmdObj.get('maxWrongTimes') or 5
+        password: str = cmdObj.get('password') or Config.password
         if maxWrongTimes and password:
-            os.chdir(cls.lockScreenPath)
             configureFile = 'PasswordConfiguration.azo'
             con = {
                 "KillTaskManager": False,  # 杀死任务管理器
@@ -320,12 +329,13 @@ class Executor:
                 "DeleteCache": True,  # 删除缓存
                 "Restart": True,  # 失焦追踪
             }
-            conPath = osPath.realpath(configureFile)
+            conPath = osPath.join(cls.getLockScreenPath(), configureFile)
             with open(conPath, 'w') as w:
                 json.dump(con, w)
             result = 1
             queue.put(result) if queue is not None else None
-            os.system(f'"LockScreen.py"')
+            os.system(
+                f'cd {cls.getLockScreenPath()}&&start "{sys.executable}" "LockScreen.pyw"')  # 启动锁屏
         else:
             result = 0
             queue.put(result) if queue is not None else None
@@ -340,10 +350,11 @@ class Executor:
         :return: 1:成功, 0:失败
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
-        os.chdir(cls.lockScreenPath)
         try:
+            os.chdir(cls.getLockScreenPath())
             from src.LockScreen.LockScreen import LoginManager
             LoginManager.flushLoginSituation(True)
+            os.chdir(Config.originPath)
             result = 1
         except Exception:
             result = 0
@@ -751,10 +762,12 @@ class Executor:
         :param cmdObj:  action(str): 从 photo, shortcut 中选择
                             photo: 用照相机拍照
                             shortcut: 屏幕截图
+                        send(bool): 是否发送至邮箱
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
         action = cmdObj.get('action')
+        send = cmdObj.get('send')
         if action == 'photo':
             data = PictureSender.takePhoto()
         elif action == 'shortcut':
@@ -762,7 +775,8 @@ class Executor:
         else:
             data = b''
         if data:
-            PictureSender.sendMsg(data)
+            if send:
+                PictureSender.sendMsg(data)
             result = 1
         else:
             result = 0

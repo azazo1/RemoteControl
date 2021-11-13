@@ -1,4 +1,5 @@
 # coding=utf-8
+import os
 import sys
 import time
 
@@ -16,6 +17,7 @@ class EventBus:
     def loop(self):
         try:
             while self.alive:
+                os.chdir(Config.originPath)  # 防止executor改变路径
                 if BackgroundStopper.canStop():
                     raise FileStoppingEvent()
                 self.server.handle()

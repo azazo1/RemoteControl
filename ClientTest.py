@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # pprint.pprint(send(b'{"type":"test","content":"D:"}'))
 
-    pprint.pprint(json.loads(send(b'{"type":"dir","path":"D:/"}')))
+    # pprint.pprint(json.loads(send(b'{"type":"dir","path":"D:/"}')))
 
     # pprint.pprint(send(b'{"type":"showText","content":"D:","showTime":3000}'))
 
@@ -127,6 +127,11 @@ if __name__ == '__main__':
     # pprint.pprint(send(json.dumps({
     #     'type': 'takePhoto', "action": 'shortcut',
     # }).encode(Config.encoding)))
+
+    pprint.pprint(send(json.dumps({
+        'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100
+    }).encode(Config.encoding)))
+
     try:
         sock.close()
     except Exception:
