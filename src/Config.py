@@ -2,6 +2,7 @@
 import json
 import os
 from typing import Optional
+import re
 
 
 class Config:
@@ -60,16 +61,33 @@ def changeVar(changes: dict):
             w.write(json.dumps(var).encode(Config.encoding))
 
 
-def clearVar():
+def clearVar(say=True):
     try:
         os.chdir(Config.originPath)
         os.remove(Config.variablesFile)
     except FileNotFoundError:
-        print('清除失败')
+        print(Config.variablesFile, '清除失败') if say else None
+
+
+def switchesParse(sys_args: list):
+    """
+    分析启动参数
+    -F/f 强制关闭前面的实例然后启动
+    """
+    switches = []
+    for arg in (sys_args):
+        if arg.lower() == '-f':
+            clearVar(False)
+            switches.append(arg)
+    for switch in switches:
+        sys_args.remove(switch)
 
 
 def hasInstance() -> bool:
     """
-    查看是否有已进行的实例(请在init前调用)
+    查看是否有已进行的实例(请在init前调用) todo 判断进程实例
     """
-    return os.path.exists(Config.variablesFile)
+    file = os.path.exists(Config.variablesFile)
+    tasks = os.popen('tasklist').read().lower()
+    processes = len(re.findall(r'pythonw?\.exe', tasks))
+    return file and processes > 1  # 有一个是本进程
