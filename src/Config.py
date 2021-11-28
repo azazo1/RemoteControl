@@ -27,6 +27,7 @@ class Config:
     initialVars = {
         "blockTaskmgr": False,
         "mouseLock": False,
+        "instance": -1  # 用来告知实例PID
     }
 
     @property
@@ -40,6 +41,7 @@ def init():
             Config.initialVars
         ).encode(Config.encoding)
         w.write(data)
+    changeVar({"instance": os.getpid()})
     Config.originPath = os.popen("chdir").read().rstrip()
     print('初始路径:', Config.originPath)
 
@@ -75,7 +77,7 @@ def switchesParse(sys_args: list):
     -F/f 强制关闭前面的实例然后启动
     """
     switches = []
-    for arg in (sys_args):
+    for arg in sys_args:
         if arg.lower() == '-f':
             clearVar(False)
             switches.append(arg)
@@ -85,9 +87,22 @@ def switchesParse(sys_args: list):
 
 def hasInstance() -> bool:
     """
-    查看是否有已进行的实例(请在init前调用) todo 判断进程实例
+    查看是否有已进行的实例(检查Vars文件并通过Vars文件中保存的PID查询对应进程是否还存在)(请在init前调用)
     """
     file = os.path.exists(Config.variablesFile)
-    tasks = os.popen('tasklist').read().lower()
-    processes = len(re.findall(r'pythonw?\.exe', tasks))
-    return file and processes > 1  # 有一个是本进程
+    if file:
+        instancePID = readVar().get("instance")
+        matchedTasks = os.popen(f'tasklist /FI "PID eq {instancePID}"').read().lower()
+        process = bool(re.search(r'pythonw?\.exe', matchedTasks))
+        return process
+    return False
+
+
+def killInstance():
+    """
+    杀死Vars中记录的PID对应线程
+    :return:
+    """
+    if hasInstance():
+        pid = readVar().get("instance")
+        os.system(f"taskkill /pid {pid} /F")

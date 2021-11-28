@@ -14,7 +14,7 @@ import webbrowser
 from hashlib import md5 as MD5
 from json import JSONDecodeError
 from typing import Dict, Callable, List, Tuple, Union
-
+import traceback
 import psutil
 import pynput.keyboard
 import pyperclip
@@ -351,12 +351,14 @@ class Executor:
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         try:
-            os.chdir(cls.getLockScreenPath())
+            lsp = cls.getLockScreenPath()
             from src.LockScreen.LockScreen import LoginManager
+            os.chdir(lsp)
             LoginManager.flushLoginSituation(True)
             os.chdir(Config.originPath)
             result = 1
         except Exception:
+            traceback.print_exc()
             result = 0
         queue.put(result) if queue is not None else None
         return result

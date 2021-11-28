@@ -37,8 +37,11 @@ class EventBus:
         self.server.close()
 
     def __del__(self):
-        if self.alive:
-            self.close()
+        try:
+            if self.alive:
+                self.close()
+        except AttributeError:
+            pass
 
 # if __name__ == '__main__':
 #     a = EventBus()

@@ -67,6 +67,7 @@ class Configure:
     def __init__(self, loadType=DEFAULT):
         self.type = loadType
         self.configureFile = 'PasswordConfiguration.azo'
+        self.cacheFile = 'cache'
         self._con: dict
 
     def getAttr(self, item):
@@ -81,9 +82,12 @@ class Configure:
                 pass
 
     def initCon(self):
-        with open(self.configureFile, 'r') as r:
-            # noinspection PyAttributeOutsideInit
-            self._con = json.load(r)
+        try:
+            with open(self.configureFile, 'r') as r:
+                # noinspection PyAttributeOutsideInit
+                self._con = json.load(r)
+        except FileNotFoundError:
+            pass
 
 
 class PasswordManager:
@@ -128,7 +132,7 @@ class LoginManager(PasswordManager):
 
     @classmethod
     def flushLoginSituation(cls, sit: bool):
-        with open(cls.con.getAttr('CachePath'), 'wb') as w:
+        with open(cls.con.cacheFile, 'wb') as w:
             write = encryptByCode(b'True' if sit else b'False', cls.getCode())
             w.write(write)
             log(f'{write=}, {cls.getCode()=}, {sit=}')
@@ -137,7 +141,7 @@ class LoginManager(PasswordManager):
     @classmethod
     def readLoginSituation(cls):
         try:
-            with open(cls.con.getAttr('CachePath'), 'rb') as r:
+            with open(cls.con.cacheFile, 'rb') as r:
                 read = r.read()
                 get = decryptByCode(read, cls.getCode())
             log(f'{read=}, Supposed:{encryptByCode(b"True", cls.getCode())}, '
@@ -154,7 +158,7 @@ class LoginManager(PasswordManager):
     @classmethod
     def deleteCache(cls):
         try:
-            p = cls.con.getAttr('CachePath')
+            p = cls.con.cacheFile
             os.remove(p) if cls.con.getAttr('DeleteCache') else None
         except FileNotFoundError:
             pass
@@ -192,7 +196,7 @@ class GUIBuilder(PasswordManager):
         self.wrongtimes = 0
         self.alive = True
         self.img = None
-        self.originWindow = getWindow()
+        self.originWindows = [getWindow()]
         self._topMost = self.con.getAttr('TopMost')
         self._fullScreen = self.con.getAttr('FullScreen')
         self._maxWrongTimes = self.con.getAttr('MaximumWrongTimes')
@@ -267,7 +271,7 @@ class GUIBuilder(PasswordManager):
         self.root.update()
 
     def getWindow(self):
-        self.originWindow = getWindow()
+        self.originWindows.append(getWindow())
         self.text['text'] += f'[INFO] {time.asctime()} Get Window Successfully\n'
         self.root.bind('<Enter>', lambda *args: None)  # 防止第二次更新
 
@@ -340,8 +344,8 @@ class GUIBuilder(PasswordManager):
                         self.showPic()
                         break
                     lastLoadTime = nowTime
-                if getWindow() != self.originWindow:  # 检测到窗口离开，重新启动程序
-                    self.text['text'] += f'[INFO] {time.asctime()} {getWindow(), self.originWindow}\n'
+                if getWindow() not in self.originWindows:  # 检测到窗口离开，重新启动程序
+                    self.text['text'] += f'[INFO] {time.asctime()} {getWindow(), self.originWindows}\n'
                     self.remoteLogin.close()
                     os.system(f'"{argv[0]}"') if self._restart else None  # 新建进程
                     break
@@ -362,6 +366,9 @@ class GUIBuilder(PasswordManager):
 
 
 def main():
+    LoginManager.flushLoginSituation(True)
+    time.sleep(0.5)
+    LoginManager.deleteCache()
     g = GUIBuilder()
     g.looping()
 

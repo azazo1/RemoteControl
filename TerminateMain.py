@@ -1,11 +1,9 @@
 # coding=utf-8
-from src.Config import init, clearVar, hasInstance
-from src.EventBus import EventBus
-import os
-import sys
+from src.Config import killInstance, clearVar
 
 
 def main():
+    killInstance()
     clearVar()
 
 
