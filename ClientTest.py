@@ -113,6 +113,48 @@ if __name__ == '__main__':
     #     'type': 'fileTransport', 'path': r"D:\Temp\test.txt", 'action': 'merge'
     # }).encode(Config.encoding)))
 
+    # 分段 get 测试
+    storePath = r"D:\Temp\get"
+    target = r"D:\Temp\pics.zip"
+    detail = json.loads(send(json.dumps({
+        'type': 'fileDetail', 'path':target,
+    }).encode(Config.encoding)))
+    available = detail.get("available")
+    size = detail.get("size")
+    md5Code = detail.get("md5")
+    parts = detail.get("parts")
+    if available:
+        with open(storePath, 'wb') as w:
+            w.write(b"\0" * size)
+            for i in range(1, parts + 1):
+                part = json.loads(send(json.dumps({
+                    'type': 'fileTransport', 'path': target, "action": 'get', 'part': i,
+                }).encode(Config.encoding)))
+                part_md5 = part.get('md5')
+                part_data = part.get('data')
+                part_num = part.get("part")
+                start = part.get('start')
+                state = part.get("state")
+                if state != 1:
+                    print(i, 'state failed.')
+                    continue
+                # state == 1 说明其他内容有效
+                part_data = Encryptor.fromBase64(part_data)
+                if md5(part_data).hexdigest() == part_md5:
+                    w.seek(start)
+                    w.write(part_data)
+                    print(i, 'succeeded.')
+                else:
+                    print(i, 'md5 failed.')
+        with open(storePath, 'rb') as r:
+            data = r.read()
+        if md5(data).hexdigest() == md5Code:
+            print('all succeeded.')
+        else:
+            print('some failed.')
+    else:
+        print('no file.')
+
     # pprint.pprint(send(json.dumps({
     #     'type': 'shutdown', "action": "restart", "delay": 1000,
     # }).encode(Config.encoding)))
@@ -128,11 +170,12 @@ if __name__ == '__main__':
     #     'type': 'takePhoto', "action": 'shortcut',
     # }).encode(Config.encoding)))
 
-    pprint.pprint(send(json.dumps({
-        'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100
-    }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100
+    # }).encode(Config.encoding)))
 
     try:
         sock.close()
     except Exception:
         pass
+    input()

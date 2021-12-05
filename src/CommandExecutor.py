@@ -38,7 +38,7 @@ def firstRun(args: List[str]):
 
 class FileTransportHelper:
     @classmethod
-    def checkRange(cls, rangeObj) -> int:
+    def checkRange(cls, rangeObj) -> bool:
         """
         检查范围是否有效
         :param rangeObj: 从 JSON 对象中取得的原 range
@@ -56,6 +56,35 @@ class FileTransportHelper:
             return False
 
         return True
+
+    @classmethod
+    def getTotalPart(cls, fileSize: int):
+        return (fileSize // Config.fileTransportMaxSize) + int(bool(fileSize % Config.fileTransportMaxSize))
+
+    @classmethod
+    def checkPartRange(cls, partObj, fileSize: int) -> bool:
+        """
+        检查分块序号是否有效
+        :param partObj: 从 JSON 对象中取得的原 part
+        :param fileSize: 目标文件的大小
+        :return: 是否有效(bool)
+        """
+
+        if not (isinstance(partObj, int)):  # 检查 part 是否有效--是否为数字
+            return False
+        if 0 < partObj <= cls.getTotalPart(fileSize):
+            return True
+        return False
+
+    @classmethod
+    def getPartRange(cls, part: int) -> Tuple[int, int]:
+        """
+        获取分块对应字节范围
+        :param part: 分块序号
+        :return: 范围(起始位置, 读取长度) 从零开始
+        """
+        start = Config.fileTransportMaxSize * (part - 1)
+        return start, Config.fileTransportMaxSize
 
     @classmethod
     def checkParts(cls, prefix: str, name: str) -> int:
@@ -534,21 +563,35 @@ class Executor:
         :param cmdObj: path: 文件位置(str)
         :param queue: 文件信息 JSON 对象：{
                 "available": 是否成功获取(bool，若为 False 则后面几项为 None),
+                "path": 储存路径(str),
+                "name": 文件名(str),
                 "size": 文件字节数(int),
-                "md5": 文件内容 MD5 码
+                "md5": 文件内容 MD5 码,
+                "parts": 文件分块数量(由 size 和 fileTransportMaxSize 决定)(int)
             }
         :return:  同 queue
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
 
         path = cmdObj.get("path")
-        result = {"available": False, "size": None}
+        result = {
+            "available": False,
+            "path": "",
+            "name": "",
+            "size": 0,
+            "md5": "",
+            "parts": 0,
+        }
         if path and osPath.exists(path) and osPath.isfile(path):
-            result["size"] = osPath.getsize(path)
+            path_pre, name = osPath.split(osPath.abspath(path))
             with open(path, 'rb') as r:
                 data = r.read()
             result["md5"] = MD5(data).hexdigest()
+            result["size"] = osPath.getsize(path)
+            result["path"] = path_pre
+            result['name'] = name
             result["available"] = True
+            result["parts"] = FileTransportHelper.getTotalPart(result['size'])
         queue.put(json.dumps(result)) if queue is not None else None
         return result
 
@@ -563,21 +606,25 @@ class Executor:
                         若 action 为 post 则需提供 part: 传输的“部分”的序号(int, 从0开始)
                         若 action 为 post 则需提供 name: 传送的文件的文件名(str).
                         若 action 为 post 则需提供 path: 传送的文件需存放的路径（无需文件名）(str).
-                        若 action 为 merge 则需提供 path: 需要合并的文件(str, 包括其路径, 不用加".part")
+                        若 action 为 merge 则需提供 path: 需要合并的文件(str, 包括其路径与文件名, 不用加".part")
                         若 action 为 merge 则可提供 rewrite: 是否重写(bool, 默认为True).
-                        若 action 为 get 则需提供 path: 传送的文件的文件路径(str).
-                        若 action 为 get 则需提供 range: 传送的文件的字节范围，1为起始，左闭右闭，范围不应超过最大传输文件限制(list[int, int]).
+                        若 action 为 get 则需提供 path: 传送的文件的文件路径(包括路径和文件名)(str).
+                        若 action 为 get 则需提供 part: 传送文件的分块序号(从一开始)(int)
         :param queue:   若 action 为 get：
                             成功传输则为一个JSON字典：
                                 {
-                                    "name": 文件名(str),
+                                    "path": 文件原路径(str),
                                     "data": base64处理过的文件内容(str),
-                                    "md5": 文件对应内容 md5 校对码 (str)
+                                    "md5": 文件对应内容 md5 校对码 (str),
+                                    "part": 文件分块序号(从1开始)(int),
+                                    "start": 分块首字节在整个文件的位置(int),
+                                    "state": 传输状态码(见下)(int)
                                 }.
-                            传输失败则为：
+                            传输状态码：
+                                1:获取成功;
                                 0:文件内容传输失败（未知错误）;
                                 3:不存在目标文件;
-                                5:文件范围无效(或过大);
+                                5:文件分块序号无效(或过大);
                         若 action 为 post：
                             0:文件内容传输失败;
                             1:文件成功接收且文件内容校验成功;
@@ -601,7 +648,6 @@ class Executor:
         data: str = cmdObj.get('data')
         name: str = cmdObj.get('name')
         path: str = cmdObj.get('path')
-        range_: List[int, int] = cmdObj.get('range')
         result = 0
         queueResult = 0
         if action == 'post':
@@ -649,25 +695,33 @@ class Executor:
             queueResult = result
 
         elif action == 'get':
-            if not path or not osPath.isfile(path):
+            queueResult = {
+                "path": path,
+                "data": "",
+                "md5": "",
+                "part": part,
+                "start": 0,
+                "state": 0
+            }
+            if not path or not osPath.isfile(path):  # 包含了存在检测
+                queueResult["state"] = 3
                 result = 3
-                queueResult = 3
-            elif not FileTransportHelper.checkRange(range_):
+            elif not FileTransportHelper.checkPartRange(part, osPath.getsize(path)):
+                queueResult["state"] = 5
                 result = 5
-                queueResult = 5
             else:
-                left, right = range_
+                start, length = FileTransportHelper.getPartRange(part)
                 with open(path, 'rb') as r:
-                    r.seek(left - 1)
-                    rawData = r.read(right - left + 1)
+                    r.seek(start)
+                    rawData = r.read(length)
                 encodedData = Encryptor.toBase64(rawData).decode(Config.encoding)
                 md5Code = MD5(rawData).hexdigest()
-                name = osPath.split(path)[-1]
-                queueResult = json.dumps(
-                    {'name': name, "data": encodedData, 'md5': md5Code}
-                )
+                queueResult["md5"] = md5Code
+                queueResult["data"] = encodedData
+                queueResult["start"] = start
+                queueResult["state"] = 1
                 result = 1
-
+        queueResult = json.dumps(queueResult)  # json化
         queue.put(queueResult) if queue is not None else None
         return result
 
