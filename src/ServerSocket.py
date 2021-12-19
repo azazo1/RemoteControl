@@ -125,17 +125,20 @@ class ClientManager:
         """发送一条转换为base64编码的消息"""
         if not self.alive:
             return
-        print(f"发送 {data} 到 {self.address}", file=self.output)
+        data_info = data[:Config.networkIOInfoMaxLength//2]+b"..."+data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):] if len(data) > Config.networkIOInfoMaxLength else data
         data = Encryptor.encryptToBase64(data) if encrypt else data
         data += b'\n'
         if len(data) > Config.longestCommand:
+            print(f"[失败:过长] 发送 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
             return
         try:
             block = self.socket.getblocking()
             self.socket.setblocking(True)
             self.socket.sendall(data)
             self.socket.setblocking(block)
+            print(f"[成功] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
         except Exception:
+            print(f"[失败:异常] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
             self.close()
 
     # def isAlive(self):
@@ -183,12 +186,16 @@ class ClientManager:
                 result = b''
             else:
                 try:
-                    print("接收到：来自{from_}，内容（已解码）：{data}"
-                          .format(from_=self.address, data=Encryptor.decryptFromBase64(result)), file=self.output
+                    data = Encryptor.decryptFromBase64(result)
+                    data = f"{data[:Config.networkIOInfoMaxLength//2]}...{data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):]}" if len(data) > Config.networkIOInfoMaxLength else data
+                    print("接收到：来自{from_}，长度：{length}，内容（已解码）：{data}"
+                          .format(length=len(data), from_=self.address, data=data), file=self.output
                           )
                 except Exception:
-                    print("接收到：来自{from_}，内容（原始）：{data}"
-                          .format(from_=self.address, data=result), file=self.output
+                    data = result
+                    data = data[:Config.networkIOInfoMaxLength//2] +b"..."+ data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):] if len(data) > Config.networkIOInfoMaxLength else data
+                    print("接收到：来自{from_}，长度：{length}，内容（原始）：{data}"
+                          .format(length=len(data), from_=self.address, data=data), file=self.output
                           )
         return result
 

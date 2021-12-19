@@ -11,8 +11,8 @@ class Config:
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码
     password = 'MyComputerAzazo1'  # 锁屏默认密码
-    readRange = 32768  # 套接字一次读取长度（字节）
-    longestCommand = 32768  # 最长命令长度（字节）
+    readRange = 524288  # 套接字一次读取长度（字节）
+    longestCommand = 1048576  # 最长命令长度（字节）
     socketTimeoutSec = 5  # 套接字超时时间（秒）
     longestShowTextTime = 10000  # showText命令最长显示时间（毫秒）
     authenticationTimeoutMilli = 10000  # 鉴权过期时间（毫秒）
@@ -22,7 +22,8 @@ class Config:
     key = "azazo1Bestbdsrjpgaihbaneprjaerg".encode(encoding)  # 传输加密密钥
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
-    fileTransportMaxSize = 8192  # 传输文件内容(原)最大大小（字节）
+    fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（字节）
+    networkIOInfoMaxLength = 100 # 报告接收与发送消息最长长度（超过则省略）
     variablesFile = 'vars.json'
     initialVars = {
         "blockTaskmgr": False,

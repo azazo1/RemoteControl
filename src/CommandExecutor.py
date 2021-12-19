@@ -563,12 +563,13 @@ class Executor:
         :param cmdObj: path: 文件位置(str)
         :param queue: 文件信息 JSON 对象：{
                 "available": 是否成功获取(bool，若为 False 则后面几项为 None),
-                "path": 储存路径(str),
+                "path": 储存绝对路径(str),
                 "name": 文件名(str),
                 "size": 文件字节数(int),
                 "md5": 文件内容 MD5 码,
                 "parts": 文件分块数量(由 size 和 fileTransportMaxSize 决定)(int)
             }
+            若非文件则返回对应空值的 JSON 对象
         :return:  同 queue
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
@@ -611,9 +612,9 @@ class Executor:
                         若 action 为 get 则需提供 path: 传送的文件的文件路径(包括路径和文件名)(str).
                         若 action 为 get 则需提供 part: 传送文件的分块序号(从一开始)(int)
         :param queue:   若 action 为 get：
-                            成功传输则为一个JSON字典：
+                            成功传输则为一个JSON字典(文件具体信息在 fileDetail 命令中提供)：
                                 {
-                                    "path": 文件原路径(str),
+                                    "path": 文件原路径(与 请求 相同)(str),
                                     "data": base64处理过的文件内容(str),
                                     "md5": 文件对应内容 md5 校对码 (str),
                                     "part": 文件分块序号(从1开始)(int),
