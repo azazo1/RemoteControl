@@ -6,6 +6,8 @@ import re
 
 
 class Config:
+    nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
+    port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
     version = '1.0'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
@@ -23,7 +25,7 @@ class Config:
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
     fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（字节）
-    networkIOInfoMaxLength = 100 # 报告接收与发送消息最长长度（超过则省略）
+    networkIOInfoMaxLength = 100  # 报告接收与发送消息最长长度（超过则省略）
     variablesFile = 'vars.json'
     initialVars = {
         "blockTaskmgr": False,

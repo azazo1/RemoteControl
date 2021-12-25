@@ -2,7 +2,8 @@
 import os
 import sys
 
-needs = ['pip', 'pygame', 'pyperclip', 'psutil', 'pynput', 'pycryptodome', 'pywin32','opencv-python','Pillow']
+needs = ['pip', 'pygame', 'pyperclip', 'psutil', 'pynput', 'pycryptodome', 'pywin32',
+         'opencv-python', 'Pillow']
 logName = 'Azazo1Logs.txt'
 print('Start')
 state = 1

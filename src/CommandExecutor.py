@@ -364,7 +364,7 @@ class Executor:
             result = 1
             queue.put(result) if queue is not None else None
             os.system(
-                f'cd {cls.getLockScreenPath()}&&start "{sys.executable}" "LockScreen.pyw"')  # 启动锁屏
+                f'cd {cls.getLockScreenPath()}&&start "{sys.executable}" "LockScreen.pyw" {Config.nowIP}:{Config.port}')  # 启动锁屏
         else:
             result = 0
             queue.put(result) if queue is not None else None

@@ -1,6 +1,7 @@
 # coding=utf-8
 import json
 import socket
+import sys
 import traceback
 from PIL import Image, ImageTk
 from win32gui import GetForegroundWindow as getWindow
@@ -283,6 +284,7 @@ class GUIBuilder(PasswordManager):
                                          'just close the computer in a correct way.\n'
                                          f'If you have a Key File in Correct Path: {self.getFilePath("E")}, '
                                          f'just click Verify.')
+        tk.Label(root, text=f"{' '.join(sys.argv[1:])}").pack()
         self.label.pack(fill=tk.BOTH, expand=True)  # 提示信息
         self.entry = entry = tk.Entry(root, show='*')
         entry.pack(fill=tk.X, expand=True)
@@ -347,7 +349,7 @@ class GUIBuilder(PasswordManager):
                 if getWindow() not in self.originWindows:  # 检测到窗口离开，重新启动程序
                     self.text['text'] += f'[INFO] {time.asctime()} {getWindow(), self.originWindows}\n'
                     self.remoteLogin.close()
-                    os.system(f'"{argv[0]}"') if self._restart else None  # 新建进程
+                    os.system(f'"{argv[0]}" {" ".join(argv[1:])}') if self._restart else None  # 新建进程
                     break
 
         finally:

@@ -5,12 +5,6 @@ import email.header
 import email.mime.multipart
 import email.mime.image
 import time
-import os
-import cv2
-import win32api
-import win32con
-import win32gui
-import win32ui
 
 from src.Config import Config
 
@@ -21,6 +15,7 @@ title = '图片截获'
 
 
 def takePhoto(filename='temp.png') -> bytes:
+    import cv2
     cap = cv2.VideoCapture(0)
     ret, img = cap.read()
     cap.release()
@@ -34,6 +29,10 @@ def takePhoto(filename='temp.png') -> bytes:
 
 
 def takeShortcut(filename='temp.png') -> bytes:
+    import win32api
+    import win32con
+    import win32gui
+    import win32ui
     # 获取桌面
     hdesktop = win32gui.GetDesktopWindow()
     # 分辨率适应

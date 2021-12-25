@@ -1,9 +1,11 @@
 # coding=utf-8
+import sys
+
+sys.path.append(".")  # 解决src包导入问题
 from src.CommandExecutor import firstRun
 from src.Config import init, clearVar, hasInstance, switchesParse
 from src.EventBus import EventBus
 import os
-import sys
 
 
 def main():

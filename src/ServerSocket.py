@@ -5,7 +5,6 @@ import socket
 import sys
 import threading
 import time
-import traceback
 from hashlib import md5
 from threading import Thread
 from typing import List, Dict
@@ -22,18 +21,20 @@ def filterNotTrue(obj: List[bytes]):
 class AuthenticateError(Exception):
     pass
 
+
 def get_host_ip():
     """
     查询本机ip地址
     """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8',80))
-        ip=s.getsockname()[0]
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
     finally:
         s.close()
 
     return ip
+
 
 class ClientManager:
     def __init__(self, client: socket.socket, address: tuple):
@@ -125,7 +126,9 @@ class ClientManager:
         """发送一条转换为base64编码的消息"""
         if not self.alive:
             return
-        data_info = data[:Config.networkIOInfoMaxLength//2]+b"..."+data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):] if len(data) > Config.networkIOInfoMaxLength else data
+        data_info = data[:Config.networkIOInfoMaxLength // 2] + b"..." + data[max(Config.networkIOInfoMaxLength // 2,
+                                                                                  len(data) - Config.networkIOInfoMaxLength // 2):] if len(
+            data) > Config.networkIOInfoMaxLength else data
         data = Encryptor.encryptToBase64(data) if encrypt else data
         data += b'\n'
         if len(data) > Config.longestCommand:
@@ -136,7 +139,7 @@ class ClientManager:
             self.socket.setblocking(True)
             self.socket.sendall(data)
             self.socket.setblocking(block)
-            print(f"[成功] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
+            print(f"[成功] 发送长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
         except Exception:
             print(f"[失败:异常] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
             self.close()
@@ -187,13 +190,17 @@ class ClientManager:
             else:
                 try:
                     data = Encryptor.decryptFromBase64(result)
-                    data = f"{data[:Config.networkIOInfoMaxLength//2]}...{data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):]}" if len(data) > Config.networkIOInfoMaxLength else data
+                    data = f"{data[:Config.networkIOInfoMaxLength // 2]}...{data[max(Config.networkIOInfoMaxLength // 2, len(data) - Config.networkIOInfoMaxLength // 2):]}" if len(
+                        data) > Config.networkIOInfoMaxLength else data
                     print("接收到：来自{from_}，长度：{length}，内容（已解码）：{data}"
                           .format(length=len(data), from_=self.address, data=data), file=self.output
                           )
                 except Exception:
                     data = result
-                    data = data[:Config.networkIOInfoMaxLength//2] +b"..."+ data[max(Config.networkIOInfoMaxLength//2, len(data)-Config.networkIOInfoMaxLength//2):] if len(data) > Config.networkIOInfoMaxLength else data
+                    data = data[:Config.networkIOInfoMaxLength // 2] + b"..." + data[
+                                                                                max(Config.networkIOInfoMaxLength // 2,
+                                                                                    len(data) - Config.networkIOInfoMaxLength // 2):] if len(
+                        data) > Config.networkIOInfoMaxLength else data
                     print("接收到：来自{from_}，长度：{length}，内容（原始）：{data}"
                           .format(length=len(data), from_=self.address, data=data), file=self.output
                           )
@@ -241,10 +248,12 @@ class SocketServer:
         self.clearDeadClient() if Config.clearDeadClient else None
 
     def _initSocket(self):
-        self.socket.bind(("0.0.0.0", 2004))
+        self.socket.bind(("0.0.0.0", Config.port))
         self.socket.listen()
         self.socket.setblocking(False)
-        print(f'服务器开启，开启于{(get_host_ip(), self.socket.getsockname()[-1])}',
+        Config.nowIP = get_host_ip()
+        Config.port = self.socket.getsockname()[-1]
+        print(f'服务器开启，开启于{(Config.nowIP, Config.port)}',
               file=self.output)
 
     def accept(self):
