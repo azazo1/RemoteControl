@@ -1,8 +1,8 @@
 if exist .\python-3.8.1-amd64.exe (goto start) else (goto download)
 :start
 mkdir python
-rem python-3.8.1-amd64.exe /quiet TargetDir=%~dp0\python PrependPath=0 Shortcuts=0
-call prepare.py
+python-3.8.1-amd64.exe /quiet TargetDir=%~dp0\python PrependPath=0 Shortcuts=0
+call .\python\python.exe prepare.py
 goto quit
 
 :download

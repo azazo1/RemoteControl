@@ -83,9 +83,9 @@ if __name__ == '__main__':
     #     {'type': 'blockTaskmgr', 'block': True}
     # ).encode(Config.encoding)))
 
-    # pprint.pprint(send(json.dumps(
-    #     {'type': 'launchOnStart', 'launch': True}
-    # ).encode(Config.encoding)))
+    pprint.pprint(send(json.dumps(
+        {'type': 'launchOnStart', 'launch': False, 'quiet':True}
+    ).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps(
     #     {'type': 'fileDetail', 'path': r"D:\Program_Projects\Python_Projects\RemoteControl\setupPython.cmd"}
@@ -114,6 +114,7 @@ if __name__ == '__main__':
     # }).encode(Config.encoding)))
 
     # 分段 get 测试
+    """
     storePath = r"D:\Temp\get"
     target = r"D:\Temp\pics.zip"
     detail = json.loads(send(json.dumps({
@@ -154,7 +155,7 @@ if __name__ == '__main__':
             print('some failed.')
     else:
         print('no file.')
-
+"""
     # 分段 get 测试
     # storePath = r"D:\Temp\get"
     # target = r"D:\Temp\pics.zip"

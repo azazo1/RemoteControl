@@ -9,7 +9,7 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0'  # 当前版本号
+    version = '1.0.20220108'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码
     password = 'MyComputerAzazo1'  # 锁屏默认密码
@@ -21,7 +21,7 @@ class Config:
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
     usingMultiprocessing = False  # 是否使用多进程（慢）
-    key = "azazo1Bestbdsrjpgaihbaneprjaerg".encode(encoding)  # 传输加密密钥
+    key = "as437pdjpa57fdsa5ytdjhzfwa".encode(encoding)  # 传输加密密钥
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
     fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（字节）

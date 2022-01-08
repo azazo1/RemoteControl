@@ -527,8 +527,11 @@ class Executor:
         args: str = cmdObj.get('args')
         result = 0
         if executable and osPath.exists(executable):
-            subprocess.Popen(executable=executable, args=(args or '',), creationflags=subprocess.CREATE_NEW_CONSOLE)
-            result = 1
+            try:
+                subprocess.Popen(executable=executable, args=(args or '',), creationflags=subprocess.CREATE_NEW_CONSOLE)
+                result = 1
+            except OSError:
+                result = 0 if os.system("start \"" + executable + "\" " + args) else 1
         queue.put(result) if queue is not None else None
         return result
 
@@ -555,6 +558,20 @@ class Executor:
             pass
         queue.put(result) if queue is not None else None
         return result
+
+    @classmethod
+    def getBrowsers(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> list:
+        """
+        获得本机可用的浏览器选项（用于surfWebsite命令）
+        :param cmdObj: nothing
+        :param queue: JSON 列表: [浏览器标识(str), ...]
+        :return: 同queue
+        """
+        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        webbrowser.get()  # 初始化
+        result = json.dumps(webbrowser._tryorder or [])
+        queue.put(result) if queue is not None else None
+        return queue
 
     @classmethod
     def fileDetail(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> dict:
@@ -743,17 +760,27 @@ class Executor:
     def launchOnStart(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         设置开机自启动
-        :param cmdObj: launch:是否开机自启动
+        :param cmdObj: launch(bool):是否开机自启动, quiet(bool):是否在启动时不带命令行
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
         launch = cmdObj.get('launch')
+        quiet = cmdObj.get('quiet')
         result = 0
         if launch is not None:
             if launch:
+                filename = sys.argv[0].strip('"')
+
+                if quiet is not None:
+                    execFilenamePrefix = osPath.split(sys.executable)[0]
+                    execFilename = osPath.join(execFilenamePrefix, 'pythonw.exe') if quiet else osPath.join(
+                        execFilenamePrefix, "python.exe")
+                else:
+                    execFilename = sys.executable
+
                 result = 0 if os.system(  # 创建新任务(覆盖)
-                    f'''schtasks /create /tn RemoteControl /sc minute /tr "{sys.argv[0].strip('"')}" /f'''
+                    f'''schtasks /create /tn RemoteControl /sc minute /tr "{execFilename} {filename}" /f'''
                 ) else 1
             else:
                 result = 0 if os.system(  # 删除旧任务(覆盖)
@@ -864,6 +891,7 @@ class Executor:
                 'shutdown': cls.shutdown,
                 'inputLock': cls.inputLock,
                 'takePhoto': cls.takePhoto,
+                'getBrowsers': cls.getBrowsers
             }
         return cls._functionMap
 
