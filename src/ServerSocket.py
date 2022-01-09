@@ -1,6 +1,8 @@
 # coding=utf-8
 import json
 import multiprocessing
+import os
+import re
 import socket
 import sys
 import threading
@@ -25,18 +27,31 @@ class AuthenticateError(Exception):
 def get_host_ip():
     """
     查询本机ip地址
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
-    finally:
-        s.close()
 
-    return ip
+公用         首选项             16m37s     16m37s 240e:3b1:f1b9:1870:111b:49c6:f085:fc25
+    """
+    s4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    s4.settimeout(0.5)
+    try:
+        s4.connect(('8.8.8.8', 80))
+        ipv4 = s4.getsockname()[0]
+        query = os.popen("netsh interface ipv6 show addresses").read()
+        ipv6 = re.findall(r"\n公用.*?([a-zA-Z0-9:]+)\n", query)
+        ipv6.extend(
+            re.findall(r"\npublic.*?([a-zA-Z0-9:]+)\n", query)
+        )
+        return ipv4, ipv6
+    finally:
+        try:
+            s4.close()
+        finally:
+            pass
 
 
 class ClientManager:
+    output = sys.stdout
+
     def __init__(self, client: socket.socket, address: tuple):
         self.alive = True
         self.authenticated = None  # None:未鉴权 False:鉴权失败 True:鉴权成功
@@ -47,7 +62,6 @@ class ClientManager:
         self.communicate: List[MyProcess, multiprocessing.Queue] = []
         self.thread = Thread(target=self.loop, daemon=True)
         self.thread.start()
-        self.output = sys.stdout
 
     def _initSocket(self):
         self.socket.setblocking(False)
@@ -231,6 +245,7 @@ class SocketServer:
         self.alive = True
         self.output = sys.stdout
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clientManagers: Dict[tuple, ClientManager] = {}
         self._initSocket()
 
@@ -245,12 +260,16 @@ class SocketServer:
 
     def handle(self):
         self.accept()
+        self.accept6()
         self.clearDeadClient() if Config.clearDeadClient else None
 
     def _initSocket(self):
         self.socket.bind(("0.0.0.0", Config.port))
+        self.socket6.bind(("0:0:0:0:0:0:0:0", Config.port))
         self.socket.listen()
+        self.socket6.listen()
         self.socket.setblocking(False)
+        self.socket6.setblocking(False)
         Config.nowIP = get_host_ip()
         Config.port = self.socket.getsockname()[-1]
         print(f'服务器开启，开启于{(Config.nowIP, Config.port)}',
@@ -260,7 +279,15 @@ class SocketServer:
         try:
             client, address = self.socket.accept()
             self.clientManagers[address] = ClientManager(client, address)
-            # print(f'{address} 连接', file=self.output)
+            print(f'{address} 连接', file=self.output) if Config.reportConnection else None
+        except (BlockingIOError, socket.timeout):
+            pass
+
+    def accept6(self):
+        try:
+            client, address = self.socket6.accept()
+            self.clientManagers[address] = ClientManager(client, address)
+            print(f'{address} 连接', file=self.output) if Config.reportConnection else None
         except (BlockingIOError, socket.timeout):
             pass
 
