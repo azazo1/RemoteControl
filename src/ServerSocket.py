@@ -26,14 +26,25 @@ def get_host_ip():
     """
     查询本机ip地址
     """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s6 = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+    s4.settimeout(0.5)
+    s6.settimeout(0.5)
     try:
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
+        s4.connect(('8.8.8.8', 80))
+        s6.connect(('8:8:8:8:8:8:8:8', 80))
+        ip4 = s4.getsockname()[0]
+        ip6 = s6.getsockname()[0]
+        return ip4, ip6
     finally:
-        s.close()
-
-    return ip
+        try:
+            s4.close()
+        finally:
+            pass
+        try:
+            s6.close()
+        finally:
+            pass
 
 
 class ClientManager:
@@ -231,6 +242,7 @@ class SocketServer:
         self.alive = True
         self.output = sys.stdout
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clientManagers: Dict[tuple, ClientManager] = {}
         self._initSocket()
 
@@ -245,11 +257,15 @@ class SocketServer:
 
     def handle(self):
         self.accept()
+        self.accept6()
         self.clearDeadClient() if Config.clearDeadClient else None
 
     def _initSocket(self):
         self.socket.bind(("0.0.0.0", Config.port))
+        self.socket6.bind(("0:0:0:0:0:0:0:0", Config.port))
         self.socket.listen()
+        self.socket6.listen()
+        self.socket.setblocking(False)
         self.socket.setblocking(False)
         Config.nowIP = get_host_ip()
         Config.port = self.socket.getsockname()[-1]
@@ -259,6 +275,14 @@ class SocketServer:
     def accept(self):
         try:
             client, address = self.socket.accept()
+            self.clientManagers[address] = ClientManager(client, address)
+            # print(f'{address} 连接', file=self.output)
+        except (BlockingIOError, socket.timeout):
+            pass
+
+    def accept6(self):
+        try:
+            client, address = self.socket6.accept()
             self.clientManagers[address] = ClientManager(client, address)
             # print(f'{address} 连接', file=self.output)
         except (BlockingIOError, socket.timeout):
