@@ -3,7 +3,7 @@ import json
 import multiprocessing
 import os
 import os.path as osPath
-import subprocess
+import re
 import sys
 import threading
 import time
@@ -133,6 +133,41 @@ class MyThreadQueue(list):
 
     def notify(self):
         self.lock.set()
+
+
+class ProcessInfo:
+    def __init__(self, name: str, pid: int, sessionName: str, memoryUsage: int):
+        """
+        :param name: 映像名称
+        :param pid: 进程 process id
+        :param sessionName: 会话名称
+        :param memoryUsage: 内存使用(KB)
+        """
+        self.name = name
+        self.pid = pid
+        self.sessionName = sessionName
+        self.memoryUsage = memoryUsage
+
+    def toTuple(self):
+        return self.name, self.pid, self.sessionName, self.memoryUsage
+
+    def __str__(self):
+        return f"ProcessInfo<name={self.name}, pid={self.pid}, " \
+               f"sessionName={self.sessionName}, memoryUsage={self.memoryUsage}>"
+
+
+class ProcessQueryHelper:
+    @classmethod
+    def analyze(cls, content: str) -> list:
+        results = []
+        for matched in re.finditer(r"([\S ]+)\s+(\d+)\s+(\w+)\s+\d+\s+([\d,]+)", content):
+            results.append(ProcessInfo(
+                name=matched.group(1).strip(),
+                pid=int(matched.group(2)),
+                sessionName=matched.group(3),
+                memoryUsage=int(matched.group(4).replace(",", ""))
+            ))
+        return results
 
 
 class Executor:
@@ -493,8 +528,8 @@ class Executor:
         :param cmdObj:  all:是否显示全部的进程信息(bool),
                         若 all 为 False ，则可提供 pid: 查询进程的 PID(int),
                         若 all 为 False ，且 pid 未提供，则需提供 name: 查询进程的名字(str),
-        :param queue:   tasklist 显示的字符串,
-                        若 tasklist 查询不到进程，则为 "None",
+        :param queue:   tasklist 显示的字符串分析后的结果: [[映像名称(str), ProcessID(int), 会话名称(str), 内存占用(int, KB)], ...],
+                        若 tasklist 查询不到进程，则为 [],
         :return:        同 queue
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
@@ -504,34 +539,37 @@ class Executor:
         result = ''
         if all_ is not None:
             if all_:
-                result = os.popen(f'tasklist').read()
+                result = list(map(lambda processInfo: processInfo.toTuple(),
+                                  ProcessQueryHelper.analyze(os.popen(f'tasklist').read())))
             else:
-                if pid is not None:
-                    result = os.popen(f'tasklist /FI "pid eq {pid}"').read()
+                if pid is not None:  # 有可能是0，不能简单"if pid:"
+                    result = list(map(lambda processInfo: processInfo.toTuple(),
+                                      ProcessQueryHelper.analyze(os.popen(f'tasklist /FI "pid eq {pid}"').read())))
                 elif name:
-                    result = os.popen(f'tasklist /FI "imagename eq {name}"').read()
-        result = result if '=' in result else "None"
-        queue.put(result) if queue is not None else None
+                    result = list(map(lambda processInfo: processInfo.toTuple(),
+                                      ProcessQueryHelper.analyze(
+                                          os.popen(f'tasklist /FI "imagename eq {name}"').read())))
+        queue.put(json.dumps(result)) if queue is not None else None
         return result
 
     @classmethod
-    def startProgram(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
+    def startFile(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
-        启动某一可执行文件
-        :param cmdObj: executable:可执行文件路径(str), args:执行参数（可不填）(str)
+        以关联程序启动某一文件
+        :param cmdObj: file:文件路径(str)
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
-        executable: str = cmdObj.get('executable')
-        args: str = cmdObj.get('args')
+        file: str = cmdObj.get('file')
         result = 0
-        if executable and osPath.exists(executable):
+        if file and osPath.exists(file):
             try:
-                subprocess.Popen(executable=executable, args=(args or '',), creationflags=subprocess.CREATE_NEW_CONSOLE)
+                os.startfile(file)
                 result = 1
-            except OSError:
-                result = 0 if os.system("start \"" + executable + "\" " + args) else 1
+            except Exception:
+                traceback.print_exc()
+                result = 0 if os.system("start \"" + file + "\"") else 1
         queue.put(result) if queue is not None else None
         return result
 
@@ -757,39 +795,6 @@ class Executor:
         return result
 
     @classmethod
-    def launchOnStart(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
-        """
-        设置开机自启动
-        :param cmdObj: launch(bool):是否开机自启动, quiet(bool):是否在启动时不带命令行
-        :param queue: 1:成功, 0:失败
-        :return: 1:成功, 0:失败
-        """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
-        launch = cmdObj.get('launch')
-        quiet = cmdObj.get('quiet')
-        result = 0
-        if launch is not None:
-            if launch:
-                filename = sys.argv[0].strip('"')
-
-                if quiet is not None:
-                    execFilenamePrefix = osPath.split(sys.executable)[0]
-                    execFilename = osPath.join(execFilenamePrefix, 'pythonw.exe') if quiet else osPath.join(
-                        execFilenamePrefix, "python.exe")
-                else:
-                    execFilename = sys.executable
-
-                result = 0 if os.system(  # 创建新任务(覆盖)
-                    f'''schtasks /create /tn RemoteControl /sc minute /tr "{execFilename} {filename}" /f'''
-                ) else 1
-            else:
-                result = 0 if os.system(  # 删除旧任务(覆盖)
-                    f'''schtasks /delete /tn RemoteControl /f'''
-                ) else 1
-        queue.put(result) if queue is not None else None
-        return result
-
-    @classmethod
     def shutdown(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
         关机与定时关机
@@ -883,9 +888,8 @@ class Executor:
                 'clipboard': cls.clipboard,
                 'memoryLook': cls.memoryLook,
                 'queryProcess': cls.queryProcess,
-                'startProgram': cls.startProgram,
+                'startFile': cls.startFile,
                 'surfWebsite': cls.surfWebsite,
-                'launchOnStart': cls.launchOnStart,
                 'fileDetail': cls.fileDetail,
                 'fileTransport': cls.fileTransport,
                 'shutdown': cls.shutdown,
@@ -964,7 +968,6 @@ class TaskmgrKiller:
     def execKill():
         os.popen('wmic process where name="Taskmgr.exe" delete')
 
-# if __name__ == '__main__':
-#     process = Executor.subProcessExec("""{"type":"test", "content":"hello!"}""")
-#     Executor.closeProcesses()
-#     print(process.exitcode)
+
+if __name__ == '__main__':
+    pass

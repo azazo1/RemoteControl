@@ -61,15 +61,15 @@ if __name__ == '__main__':
     # pprint.pprint(send(json.dumps({'type': 'memoryLook'}).encode(Config.encoding)))
 
     # print(send(json.dumps({'type': 'queryProcess', 'all': True}).encode(Config.encoding)).decode(Config.encoding))
+    print(send(json.dumps(
+        {'type': 'queryProcess', 'all': False, 'pid': 38372}
+    ).encode(Config.encoding)).decode(Config.encoding))
     # print(send(json.dumps(
-    #     {'type': 'queryProcess', 'all': False, 'pid': -1}
-    # ).encode(Config.encoding)).decode(Config.encoding))
-    # print(send(json.dumps(
-    #     {'type': 'queryProcess', 'all': False, 'name': 'None'}
+    #     {'type': 'queryProcess', 'all': False, 'name': 'cloudmusic.exe'}
     # ).encode(Config.encoding)).decode(Config.encoding))
 
     # pprint.pprint(send(json.dumps(
-    #     {'type': 'startProgram', 'executable': "C:\\Windows\\System32\\cmd.exe", "args": "/k ipconfig"}
+    #     {'type': 'startFile', 'file': r"D:\CloudMusic\一丝不挂 - 陈奕迅.mp3"}
     # ).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps(
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # ).encode(Config.encoding)))
 
     pprint.pprint(send(json.dumps(
-        {'type': 'launchOnStart', 'launch': False, 'quiet':True}
+        {"type": "launchOnStart", "launch": False, "quiet": False}
     ).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps(
@@ -221,4 +221,4 @@ if __name__ == '__main__':
         sock.close()
     except Exception:
         pass
-    input()
+    input("确认退出?")
