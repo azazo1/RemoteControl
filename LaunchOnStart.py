@@ -39,7 +39,7 @@ def launchOnStart(launch: bool, quiet: bool = None):
                 filenamePrefix, "Main.py")
             win32api.RegSetValueEx(key, KEY_VALUE_NAME, 0, win32con.REG_SZ, f"\"{filename}\"")
             # 旧实现
-            # s = f'''schtasks /create /tn RemoteControl /sc minute /tr "cmd /k \\"{execFilename}\\" \\"{filename}\\"" /f'''
+            # s = f'''schtasks /create /tn RemoteControl /sc minute /tr "cmd /k call \\"{execFilename}\\" \\"{filename}\\" /f"'''
             # result = 0 if os.system(  # 创建新任务(覆盖)
             #     s
             # ) else 1

@@ -484,7 +484,7 @@ class Executor:
         设置剪切板
         :param cmdObj:  action:要执行的动作，可填写（右边字典的键）：{"clear":”清空“,"set":”设置剪贴板内容“, "get":"获取剪贴板内容"}
                         若 action 为 set 则需提供 content: 需要设置的内容(str)
-        :param queue:   若 action 为 clear 与 get ： 1:成功, 0:失败
+        :param queue:   若 action 为 clear 与 set ： 1:成功, 0:失败
                         若 action 为 get ： JSON 对象 {"content":剪贴板内容字符串（若剪切板内容非字符串则为"None")}
         :return:        同 queue
         """
