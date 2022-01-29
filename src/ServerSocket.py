@@ -28,7 +28,7 @@ def get_host_ip():
     """
     查询本机ip地址
 
-公用         首选项             16m37s     16m37s 240e:3b1:f1b9:1870:111b:49c6:f085:fc25
+公用         首选项             16m37s     16m37s asdf:asdf:asdf:asdf:asdf:asdf:asdf:asdf
     """
     s4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
