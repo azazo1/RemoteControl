@@ -1,0 +1,8 @@
+future
+Pillow
+psutil
+pynput
+pyperclip
+pywin32
+opencv-python
+pycryptodome

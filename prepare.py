@@ -2,8 +2,9 @@
 import os
 import sys
 
-needs = ['pip', 'pygame', 'pyperclip', 'psutil', 'pynput', 'pycryptodome', 'pywin32',
-         'opencv-python', 'Pillow']
+needs = ['pip']
+with open("requirements.txt") as r:
+    needs.extend(r.readlines())
 logName = 'Azazo1Logs.txt'
 print('Start')
 state = 1
