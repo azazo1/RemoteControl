@@ -77,6 +77,11 @@ class FileTransportHelper:
         return False
 
     @classmethod
+    def checkFileSize(cls, fileSize: int) -> bool:
+        """检查文件总内容是否过大"""
+        return fileSize < Config.fileOperateMaxSize
+
+    @classmethod
     def getPartRange(cls, part: int) -> Tuple[int, int]:
         """
         获取分块对应字节范围
@@ -624,7 +629,7 @@ class Executor:
                 "md5": 文件内容 MD5 码,
                 "parts": 文件分块数量(由 size 和 fileTransportMaxSize 决定)(int)
             }
-            若非文件则返回对应空值的 JSON 对象
+            若非文件、文件过大则返回对应空值的 JSON 对象
         :return:  同 queue
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
@@ -638,7 +643,7 @@ class Executor:
             "md5": "",
             "parts": 0,
         }
-        if path and osPath.exists(path) and osPath.isfile(path):
+        if path and osPath.isfile(path) and FileTransportHelper.checkFileSize(osPath.getsize(path)):
             path_pre, name = osPath.split(osPath.abspath(path))
             with open(path, 'rb') as r:
                 data = r.read()
@@ -654,7 +659,7 @@ class Executor:
     @classmethod
     def fileTransport(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
         """
-        传送部分文件
+        传送部分文件, 由于有的文件过大会将内存撑爆，会禁止大文件读写
         :param cmdObj:  action:执行的动作（可为后面字典的键）(str)
                             {"post":"向服务器传送文件", "get":”从服务器中读取文件“.
                         若 action 为 post 则需提供 md5: 文件内容md5校对码（base64处理前）(str).
@@ -680,20 +685,21 @@ class Executor:
                                 1:获取成功;
                                 0:文件内容传输失败（未知错误）;
                                 3:不存在目标文件;
-                                5:文件分块序号无效(或过大);
+                                5:文件分块序号无效(或文件总内容过大);
                         若 action 为 post：
-                            0:文件内容传输失败;
+                            0:文件内容传输失败(原因未知);
                             1:文件成功接收且文件内容校验成功;
                             2:无效的储存路径,
                             4:md5校验失败;
-                            5:文件过大;
+                            5:文件分块过大;
                         若 action 为 merge:
-                            0:文件合并失败;
+                            0:文件合并失败(原因未知);
                             1:文件合并成功;
                             2:合并文件缺失或无效;
+                            5:文件过大;
                             6:文件写入失败(rewrite为False且文件已存在时);
         :return:    1:传送成功, 0:传送失败（未知错误）, 2:无效的储存路径,
-                    3:不存在目标文件, 4:md5校验失败, 5:文件范围无效(或过大),
+                    3:不存在目标文件, 4:md5校验失败, 5:文件范围无效(或文件过大),
                     6:文件写入失败(rewrite为False且文件已存在时)
         """
         print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
@@ -737,12 +743,19 @@ class Executor:
                     if totalParts:
                         rawData = b''
                         for i in range(totalParts):
-                            with open(path + f".part{i}", 'rb') as r:
-                                rawData += r.read()
-                            os.remove(path + f".part{i}")
-                        with open(path, 'wb') as w:
-                            w.write(rawData)
-                        result = 1
+                            if FileTransportHelper.checkFileSize(len(rawData)):  # 检查读取内容是否过大
+                                result = 5
+                            if result == 0:  # 若文件读取大小仍可接收
+                                with open(path + f".part{i}", 'rb') as r:
+                                    rawData += r.read()  # 读取
+                            try:
+                                os.remove(path + f".part{i}")  # 尝试删除文件
+                            except FileNotFoundError:
+                                pass
+                        if result == 0:  # 若无已知错误
+                            with open(path, 'wb') as w:
+                                w.write(rawData)  # 写入文件
+                            result = 1
                     else:
                         result = 2
             else:
@@ -762,7 +775,8 @@ class Executor:
             if not path or not osPath.isfile(path):  # 包含了存在检测
                 queueResult["state"] = 3
                 result = 3
-            elif not FileTransportHelper.checkPartRange(part, osPath.getsize(path)):
+            elif not (FileTransportHelper.checkPartRange(part, osPath.getsize(path)) and
+                      FileTransportHelper.checkFileSize(osPath.getsize(path))):
                 queueResult["state"] = 5
                 result = 5
             else:

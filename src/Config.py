@@ -9,7 +9,7 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0.20220129'  # 当前版本号
+    version = '1.0.20220208'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码
     password = 'MyComputerAzazo1'  # 锁屏默认密码
@@ -25,7 +25,8 @@ class Config:
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     reportConnection = True  # 是否提示有新的连接建立（非Authenticate）
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
-    fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（字节）
+    fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（单个包）（字节）
+    fileOperateMaxSize = 1024 * 1024 * 256  # 最大传输的文件大小（post 和 get）（总）（字节）
     networkIOInfoMaxLength = 100  # 报告接收与发送消息最长长度（超过则省略）
     variablesFile = 'vars.json'
     initialVars = {

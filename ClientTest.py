@@ -61,9 +61,9 @@ if __name__ == '__main__':
     # pprint.pprint(send(json.dumps({'type': 'memoryLook'}).encode(Config.encoding)))
 
     # print(send(json.dumps({'type': 'queryProcess', 'all': True}).encode(Config.encoding)).decode(Config.encoding))
-    print(send(json.dumps(
-        {'type': 'queryProcess', 'all': False, 'pid': 38372}
-    ).encode(Config.encoding)).decode(Config.encoding))
+    #print(send(json.dumps(
+    #    {'type': 'queryProcess', 'all': False, 'pid': 38372}
+    #).encode(Config.encoding)).decode(Config.encoding))
     # print(send(json.dumps(
     #     {'type': 'queryProcess', 'all': False, 'name': 'cloudmusic.exe'}
     # ).encode(Config.encoding)).decode(Config.encoding))
@@ -82,10 +82,6 @@ if __name__ == '__main__':
     # pprint.pprint(send(json.dumps(
     #     {'type': 'blockTaskmgr', 'block': True}
     # ).encode(Config.encoding)))
-
-    pprint.pprint(send(json.dumps(
-        {"type": "launchOnStart", "launch": False, "quiet": False}
-    ).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps(
     #     {'type': 'fileDetail', 'path': r"D:\Program_Projects\Python_Projects\RemoteControl\setupPython.cmd"}
