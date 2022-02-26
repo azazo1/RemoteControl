@@ -205,9 +205,9 @@ if __name__ == '__main__':
     #     'type': 'inputLock', "mouse": False,
     # }).encode(Config.encoding)))
 
-    # pprint.pprint(send(json.dumps({
-    #     'type': 'takePhoto', "action": 'shortcut',
-    # }).encode(Config.encoding)))
+    pprint.pprint(send(json.dumps({
+        'type': 'takePhoto', "action": 'photo',
+    }).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps({
     #     'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100

@@ -254,6 +254,7 @@ class SocketServer:
         print('服务器关闭', file=self.output)
         self.closeClients()
         self.socket.close()
+        self.socket6.close()
 
     def closeClients(self):
         map(lambda i: i.close(), self.clientManagers.values())
