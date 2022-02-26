@@ -1,10 +1,7 @@
 # coding=utf-8
-import base64
-import hashlib
 import json
 import pprint
 import socket
-import sys
 import time
 from hashlib import md5
 

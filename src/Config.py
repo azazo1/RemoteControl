@@ -21,7 +21,7 @@ class Config:
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
     usingMultiprocessing = False  # 是否使用多进程（慢）
-    key = "as437pdjpa97fdsa5ytfjhzfwa".encode(encoding)  # 传输加密密钥
+    key = "as437pdjpa97fdsa5ytfjhzfwa".encode(encoding)  # 默认传输加密密钥（随 outerConfigFile.key 变化）
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     reportConnection = True  # 是否提示有新的连接建立（非Authenticate）
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
@@ -29,6 +29,7 @@ class Config:
     fileOperateMaxSize = 1024 * 1024 * 256  # 最大传输的文件大小（post 和 get）（总）（字节）
     networkIOInfoMaxLength = 100  # 报告接收与发送消息最长长度（超过则省略）
     variablesFile = 'vars.json'
+    outerConfigFile = 'config.txt'
     initialVars = {
         "blockTaskmgr": False,
         "mouseLock": False,
@@ -41,15 +42,36 @@ class Config:
 
 
 def init():
-    with open(Config.variablesFile, 'wb') as w:
+    with open(Config.variablesFile, 'wb') as w:  # 创建临时变量
         data = json.dumps(
             Config.initialVars
         ).encode(Config.encoding)
         w.write(data)
+
     changeVar({"instance": os.getpid()})
+
     Config.originPath = os.getcwd()
+
+    outerKey = readOuterConfig().get("key")
+    if isinstance(outerKey, str):
+        Config.key = outerKey.encode(Config.encoding)  # 读取用户设置的密码取代默认密码
     print('初始路径:', Config.originPath)
     print('版本:', Config.version)
+
+
+def readOuterConfig() -> dict:
+    """
+    读取外部的配置
+    :return json对象
+    """
+    if not os.path.isfile(Config.outerConfigFile):
+        # 初始化外部配置
+        with open(Config.outerConfigFile, "w", encoding=Config.encoding) as w:
+            w.write(json.dumps({
+                "key": None,
+            }))
+    with open(Config.outerConfigFile, "r", encoding=Config.encoding) as r:
+        return json.load(r) or {}
 
 
 def readVar() -> Optional[dict]:
