@@ -9,9 +9,9 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0.20220208'  # 当前版本号
+    version = '1.0.20220227'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
-    user = ('', '')  # 图片发送邮箱 SMTP 账号密码
+    user = ('', '')  # 图片发送邮箱 SMTP 账号密码（QQ邮箱）
     password = 'MyComputerAzazo1'  # 锁屏默认密码
     readRange = 524288  # 套接字一次读取长度（字节）
     longestCommand = 1048576  # 最长命令长度（字节）

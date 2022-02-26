@@ -3,16 +3,17 @@ import base64
 from typing import Union
 
 import Crypto.Cipher.AES as AES
-from Crypto.Cipher._mode_ecb import EcbMode
+from Crypto.Cipher._mode_cbc import CbcMode
 
 from src.Config import Config
 
 
 class Encryptor:
-    cryptor: EcbMode = None
+    cryptor: CbcMode = None
     encoding: str = Config.encoding
     # noinspection SpellCheckingInspection
     key: bytes = Config.key
+    iv = "1234567890123456"
 
     @classmethod
     def toBase64(cls, data: bytes) -> bytes:
@@ -36,12 +37,12 @@ class Encryptor:
         return data + b'\x10' * 16
 
     @classmethod
-    def getCryptor(cls) -> Union[EcbMode]:
+    def getCryptor(cls) -> Union[CbcMode]:
         return cls.cryptor
 
     @classmethod
     def resetCryptor(cls):
-        cls.cryptor = AES.new(cls.addTo16(cls.key), AES.MODE_ECB)
+        cls.cryptor = AES.new(cls.addTo16(cls.key), AES.MODE_CBC, cls.iv.encode(Config.encoding))
 
     @classmethod
     def encrypt(cls, data: bytes) -> bytes:
