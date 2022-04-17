@@ -79,7 +79,7 @@ class FileTransportHelper:
     @classmethod
     def checkFileSize(cls, fileSize: int) -> bool:
         """检查文件总内容是否过大"""
-        return fileSize < Config.fileOperateMaxSize
+        return fileSize > Config.fileOperateMaxSize
 
     @classmethod
     def getPartRange(cls, part: int) -> Tuple[int, int]:

@@ -76,25 +76,33 @@ class ClientManager:
                         md5(str): md5(name+version+密钥+stamp)
         :return: None
         """
+        obj: dict = json.loads(line)
+        name: str = obj.get('name')
+        version: str = obj.get('version')
+        stamp: int = obj.get('stamp')
+        md5_: str = obj.get('md5')
+        nowTime = time.time()
         try:
-            obj: dict = json.loads(line)
-            name: str = obj.get('name')
-            version: str = obj.get('version')
-            stamp: int = obj.get('stamp')
-            md5_: str = obj.get('md5')
-            if (name == Config.name
-                    and version == Config.version
-                    and (time.time() * 1000 // 1 < Config.authenticationTimeoutMilli + stamp)
-                    and md5((Config.name + Config.version + Config.key.decode(Config.encoding) + str(
-                        stamp)).encode(Config.encoding)).hexdigest() == md5_
-            ):
+            result = (name == Config.name,
+                      version == Config.version,
+                      (nowTime * 1000 // 1 < Config.authenticationTimeoutMilli + stamp),
+                      md5((Config.name + Config.version + Config.key.decode(Config.encoding)
+                           + str(stamp)).encode(Config.encoding)).hexdigest() == md5_
+                      )
+            if all(result):
                 self.authenticated = True
                 print(f'{self.address} 登录成功', file=self.output)
                 self.sendLine(b'1', encrypt=False)
             else:
-                raise AuthenticateError()
+                print(f'{self.address} 登录失败, '
+                      f'name:{(name, result[0])}, '
+                      f'version:{(version, result[1])}, '
+                      f'time:{stamp, result[2]}, '
+                      f'md5:{result[3]}.', file=self.output)
+                self.authenticated = False
+                self.sendLine(b'0', encrypt=False)
         except Exception as e:
-            print(f'{self.address} 登录失败 {type(e)}', file=self.output)
+            print(f'{self.address} 登录出现异常 {type(e)}', file=self.output)
             self.authenticated = False
             self.sendLine(b'0', encrypt=False)
 
@@ -107,8 +115,8 @@ class ClientManager:
             if self.authenticated is None:
                 self.authenticate(line)
             elif self.authenticated:
-                # command = Encryptor.decryptFromBase64(line) todo back
-                command = Encryptor.fromBase64(line)
+                command = Encryptor.decryptFromBase64(line)
+                # command = Encryptor.fromBase64(line)
                 command = command.decode(Config.encoding)
                 if Config.usingMultiprocessing:
                     process, queue = Executor.subProcessExec(command)
@@ -144,8 +152,8 @@ class ClientManager:
         data_info = data[:Config.networkIOInfoMaxLength // 2] + b"..." + data[max(Config.networkIOInfoMaxLength // 2,
                                                                                   len(data) - Config.networkIOInfoMaxLength // 2):] if len(
             data) > Config.networkIOInfoMaxLength else data
-        # data = Encryptor.encryptToBase64(data) if encrypt else data todo back
-        data = Encryptor.toBase64(data) if encrypt else data
+        data = Encryptor.encryptToBase64(data) if encrypt else data
+        # data = Encryptor.toBase64(data) if encrypt else data
         data += b'\n'
         if len(data) > Config.longestCommand:
             print(f"[失败:过长] 发送 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
@@ -205,8 +213,10 @@ class ClientManager:
                 result = b''
             else:
                 try:
-                    # data = Encryptor.decryptFromBase64(result) todo back
-                    data = Encryptor.fromBase64(result)
+                    data = Encryptor.decryptFromBase64(result)
+                    if not data:
+                        raise ValueError()
+                    # data = Encryptor.fromBase64(result)
                     data = f"{data[:Config.networkIOInfoMaxLength // 2]}...{data[max(Config.networkIOInfoMaxLength // 2, len(data) - Config.networkIOInfoMaxLength // 2):]}" if len(
                         data) > Config.networkIOInfoMaxLength else data
                     print("接收到：来自{from_}，长度：{length}，内容（已解码）：{data}"

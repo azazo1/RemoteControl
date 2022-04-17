@@ -6,17 +6,19 @@ import time
 from hashlib import md5
 
 from src.Config import Config
+import src.Config as ConfigModule
 from src.Encryptor import Encryptor
 
 
 def send(data: bytes, encode=True):
     sock.sendall((Encryptor.encryptToBase64(data) if encode else data) + b'\n')
-    print('信息发送完毕')
+    print('信息发送完毕', Encryptor.decryptFromBase64(Encryptor.encryptToBase64(data)))
     get = sock.recv(Config.readRange)
     return Encryptor.decryptFromBase64(get) if encode else get
 
 
 if __name__ == '__main__':
+    Config.key = ConfigModule.readOuterConfig().get("key").encode(Config.encoding) or Config.key
     sock = socket.socket()
     sock.connect(('localhost', 2004))
     stamp = int(time.time() * 1000)
@@ -24,9 +26,8 @@ if __name__ == '__main__':
         "name": Config.name,
         "version": Config.version,
         "stamp": stamp,
-        "md5": md5(
-            bytes(Config.name + Config.version + Config.key.decode(Config.encoding) + str(stamp),
-                  Config.encoding)).hexdigest()
+        "md5": md5((Config.name + Config.version + Config.key.decode(Config.encoding)
+                    + str(stamp)).encode(Config.encoding)).hexdigest()
     }).encode(Config.encoding), False)))
     if not verified:
         print('鉴权失败')
@@ -58,9 +59,9 @@ if __name__ == '__main__':
     # pprint.pprint(send(json.dumps({'type': 'memoryLook'}).encode(Config.encoding)))
 
     # print(send(json.dumps({'type': 'queryProcess', 'all': True}).encode(Config.encoding)).decode(Config.encoding))
-    #print(send(json.dumps(
+    # print(send(json.dumps(
     #    {'type': 'queryProcess', 'all': False, 'pid': 38372}
-    #).encode(Config.encoding)).decode(Config.encoding))
+    # ).encode(Config.encoding)).decode(Config.encoding))
     # print(send(json.dumps(
     #     {'type': 'queryProcess', 'all': False, 'name': 'cloudmusic.exe'}
     # ).encode(Config.encoding)).decode(Config.encoding))
@@ -69,9 +70,9 @@ if __name__ == '__main__':
     #     {'type': 'startFile', 'file': r"D:\CloudMusic\一丝不挂 - 陈奕迅.mp3"}
     # ).encode(Config.encoding)))
 
-    # pprint.pprint(send(json.dumps(
-    #     {'type': 'surfWebsite', 'search': "你好啊", "using": "firefox"}
-    # ).encode(Config.encoding)))
+    pprint.pprint(send(json.dumps(
+        {'type': 'surfWebsite', 'search': "你好", "using": "windows-default"}
+    ).encode(Config.encoding)))
     # pprint.pprint(send(json.dumps(
     #     {'type': 'surfWebsite', 'url': "www.baidu.com", "using": "firefox"}
     # ).encode(Config.encoding)))
@@ -202,9 +203,9 @@ if __name__ == '__main__':
     #     'type': 'inputLock', "mouse": False,
     # }).encode(Config.encoding)))
 
-    pprint.pprint(send(json.dumps({
-        'type': 'takePhoto', "action": 'photo',
-    }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'takePhoto', "action": 'photo',
+    # }).encode(Config.encoding)))
 
     # pprint.pprint(send(json.dumps({
     #     'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100

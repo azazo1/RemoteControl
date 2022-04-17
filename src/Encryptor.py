@@ -1,5 +1,6 @@
 # coding=utf-8
 import base64
+import json
 from typing import Union
 
 import Crypto.Cipher.AES as AES
@@ -9,11 +10,8 @@ from src.Config import Config
 
 
 class Encryptor:
-    cryptor: CbcMode = None
-    encoding: str = Config.encoding
-    # noinspection SpellCheckingInspection
-    key: bytes = Config.key
-    iv = "1234567890123456"
+    encryptor: CbcMode = None
+    decryptor: CbcMode = None
 
     @classmethod
     def toBase64(cls, data: bytes) -> bytes:
@@ -37,32 +35,43 @@ class Encryptor:
         return data + b'\x10' * 16
 
     @classmethod
-    def getCryptor(cls) -> Union[CbcMode]:
-        return cls.cryptor
+    def getEnCryptor(cls) -> Union[CbcMode]:
+        return cls.encryptor
 
     @classmethod
-    def resetCryptor(cls):
-        cls.cryptor = AES.new(cls.addTo16(cls.key), AES.MODE_CBC, cls.iv.encode(Config.encoding))
+    def getDeCryptor(cls) -> Union[CbcMode]:
+        return cls.decryptor
+
+    @classmethod
+    def resetEnCryptor(cls):
+        cls.encryptor = AES.new(cls.addTo16(Config.key), AES.MODE_ECB)
+
+    @classmethod
+    def resetDeCryptor(cls):
+        cls.decryptor = AES.new(cls.addTo16(Config.key), AES.MODE_ECB)
 
     @classmethod
     def encrypt(cls, data: bytes) -> bytes:
-        if not cls.cryptor:
-            cls.resetCryptor()  # 初始化cryptor
-        encryptor = cls.getCryptor()
+        if not cls.getEnCryptor():
+            cls.resetEnCryptor()  # 初始化cryptor
+        encryptor = cls.getEnCryptor()
         encrypted = encryptor.encrypt(cls.adaptToJava(cls.addTo16(data)))
         return encrypted
+        # return aes256.encrypt(data, Config.key.decode(Config.encoding))
 
     @classmethod
     def decrypt(cls, data: bytes) -> bytes:
-        if not cls.cryptor:
-            cls.resetCryptor()  # 初始化cryptor
-        decrypter = cls.getCryptor()
+        if not cls.getDeCryptor():
+            cls.resetDeCryptor()  # 初始化cryptor
+        decrypter = cls.getDeCryptor()
         decrypted = decrypter.decrypt(data)
         return decrypted.rstrip(b'\0\x10')
+        # return aes256.decrypt(data, Config.key.decode(Config.encoding))
 
     @classmethod
     def encryptToBase64(cls, data: bytes) -> bytes:
         return cls.toBase64(cls.encrypt(data))
+        # return cls.encrypt(data)
 
     @classmethod
     def decryptFromBase64(cls, data: bytes) -> bytes:
@@ -70,4 +79,17 @@ class Encryptor:
 
 
 if __name__ == '__main__':
-    print(Encryptor.decryptFromBase64(Encryptor.encryptToBase64(b"Hi")))
+    print((a := Encryptor.encryptToBase64("{‘asdffs,,sd:''fds,<::dfsfs'Fsdfsdfs''sdf;;sdf}".encode())))
+    print(Encryptor.decryptFromBase64(a).decode())
+
+    en0 = lambda : Encryptor.encryptToBase64(json.dumps(
+        {'type': 'surfWebsite', 'search': "hello", "using": "firefox"}
+    ).encode(Config.encoding))
+    en = en0()
+    print(en)
+    print(Encryptor.decryptFromBase64(en0()))
+    print(Encryptor.decryptFromBase64(en))
+    print(Encryptor.decryptFromBase64(en))
+    print(Encryptor.decryptFromBase64(en0()))
+    print(Encryptor.decryptFromBase64(en))
+    print(Encryptor.decryptFromBase64(en))
