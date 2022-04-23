@@ -12,7 +12,6 @@ class EventBus:
     def __init__(self):
         self.server = SocketServer()
         self.alive = True
-        self.output = sys.stdout
 
     def loop(self):
         try:
@@ -25,9 +24,9 @@ class EventBus:
                 InputLocker.handle()
                 time.sleep(1 / Config.loopingRate)
         except KeyboardInterrupt:
-            print('用户关闭了脚本', file=self.output)
+            print('用户关闭了脚本', file=Config.output)
         except FileStoppingEvent:
-            print('用户通过文件关闭了脚本', file=self.output)
+            print('用户通过文件关闭了脚本', file=Config.output)
         finally:
             self.close()
 

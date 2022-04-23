@@ -54,7 +54,7 @@ RemoteControl
 
 ## 修改密码
 
-1. 编辑 [config.txt](config.txt) 将其中 key 值修改即可，密码长度不能超过32!
+1. 编辑 [config.txt](Config.txt) 将其中 key 值修改即可，密码长度不能超过32!
 2. 只有当值被识别为json字符串时才有效，否则将被视为null，使用默认密码
 
 ## 卸载

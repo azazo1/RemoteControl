@@ -78,8 +78,12 @@ class FileTransportHelper:
 
     @classmethod
     def checkFileSize(cls, fileSize: int) -> bool:
-        """检查文件总内容是否过大"""
-        return fileSize > Config.fileOperateMaxSize
+        """
+        检查文件总内容大小是否符合要求
+        :return True: 符合要求
+                False: 不符合要求
+        """
+        return fileSize < Config.fileOperateMaxSize
 
     @classmethod
     def getPartRange(cls, part: int) -> Tuple[int, int]:
@@ -193,14 +197,13 @@ class Executor:
     _analyser = CommandAnalyser()
     processes: List[multiprocessing.Process] = []
     threads: List[Thread] = []
-    output = sys.stdout
     _lockScreenPath = None
 
     @classmethod
     def getLockScreenPath(cls):
         if not cls._lockScreenPath:
             cls._lockScreenPath = searchLockScreenDirPath()
-            print("LockScreen 组件加载成功:", osPath.realpath(cls._lockScreenPath), file=cls.output)
+            print("LockScreen 组件加载成功:", osPath.realpath(cls._lockScreenPath), file=Config.output)
         return cls._lockScreenPath
 
     @classmethod
@@ -227,13 +230,13 @@ class Executor:
             cmdObj: Dict = cls._analyser.getObj(command)
             func = functionMap.get(cls._analyser.getCommandType(cmdObj))
         except (JSONDecodeError, AttributeError):
-            print('无效命令:', command, file=cls.output)
+            print('无效命令:', command, file=Config.output)
             queue.put(-1) if queue is not None else None
             return -1
         if func:
             return func(cmdObj, queue)
         else:
-            print('无效命令:', command, file=cls.output)
+            print('无效命令:', command, file=Config.output)
             queue.put(-1) if queue is not None else None
             return -1
 
@@ -267,10 +270,10 @@ class Executor:
         :param cmdObj: content:需要输出的文字
         :return: 1:输出成功, 0:输出失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         content = cmdObj.get('content')
         if content:
-            print(content, file=cls.output)
+            print(content, file=Config.output)
             result = 1
         else:
             result = 0
@@ -291,7 +294,7 @@ class Executor:
                         若失败则返回 0
         :return: 1:成功 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         path: str = cmdObj.get('path')
         if path and osPath.isdir(path):
             son = os.listdir(path)
@@ -317,7 +320,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         content = cmdObj.get("content")
         showTime = cmdObj.get('showTime') or 2000
         if content and showTime and showTime <= Config.longestShowTextTime:
@@ -362,7 +365,7 @@ class Executor:
         :param queue: 盘符JSON列表
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         disks = []
         for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
             if osPath.exists(char + ":"):
@@ -379,7 +382,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         maxWrongTimes = cmdObj.get('maxWrongTimes') or 5
         password: str = cmdObj.get('password') or Config.password
         if maxWrongTimes and password:
@@ -418,7 +421,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         try:
             lsp = cls.getLockScreenPath()
             from src.LockScreen.LockScreen import LoginManager
@@ -427,7 +430,7 @@ class Executor:
             os.chdir(Config.originPath)
             result = 1
         except Exception:
-            traceback.print_exc()
+            traceback.print_exc(Config.errOutput)
             result = 0
         queue.put(result) if queue is not None else None
         return result
@@ -441,7 +444,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         pid = cmdObj.get('pid')
         name = cmdObj.get('name')
         if pid is not None:  # 用 taskkill 而不是 wmic ：为了保护某些系统程序
@@ -461,7 +464,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         result = 0 if os.system('wmic process where name="Taskmgr.exe" delete') else 1
         queue.put(result) if queue is not None else None
         return result
@@ -474,7 +477,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         block = cmdObj.get('block')
         result = 0
         if block is not None:
@@ -493,7 +496,7 @@ class Executor:
                         若 action 为 get ： JSON 对象 {"content":剪贴板内容字符串（若剪切板内容非字符串则为"None")}
         :return:        同 queue
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         action = cmdObj.get('action')
         content = cmdObj.get('content')
         if action == 'set':
@@ -520,7 +523,7 @@ class Executor:
         :param queue:   一个字符串化 JSON 数组，包括两个数字，第一个是仍未被使用的字节数，第二个是总字节数
         :return:        同 queue
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         men = psutil.virtual_memory()
         result = json.dumps((men.available, men.total))
         queue.put(result) if queue is not None else None
@@ -537,7 +540,7 @@ class Executor:
                         若 tasklist 查询不到进程，则为 [],
         :return:        同 queue
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         all_ = cmdObj.get('all')
         pid = cmdObj.get('pid')
         name = cmdObj.get('name')
@@ -565,7 +568,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         file: str = cmdObj.get('file')
         result = 0
         if file and osPath.exists(file):
@@ -573,7 +576,7 @@ class Executor:
                 os.startfile(file)
                 result = 1
             except Exception:
-                traceback.print_exc()
+                traceback.print_exc(Config.errOutput)
                 result = 0 if os.system("start \"" + file + "\"") else 1
         queue.put(result) if queue is not None else None
         return result
@@ -588,7 +591,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         url = cmdObj.get('url')
         using = cmdObj.get('using') or 'windows-default'
         search = cmdObj.get('search')
@@ -610,7 +613,7 @@ class Executor:
         :param queue: JSON 列表: [浏览器标识(str), ...]
         :return: 同queue
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         webbrowser.get()  # 初始化
         result = json.dumps(webbrowser._tryorder or [])
         queue.put(result) if queue is not None else None
@@ -632,7 +635,7 @@ class Executor:
             若非文件、文件过大则返回对应空值的 JSON 对象
         :return:  同 queue
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
 
         path = cmdObj.get("path")
         result = {
@@ -643,16 +646,19 @@ class Executor:
             "md5": "",
             "parts": 0,
         }
-        if path and osPath.isfile(path) and FileTransportHelper.checkFileSize(osPath.getsize(path)):
-            path_pre, name = osPath.split(osPath.abspath(path))
-            with open(path, 'rb') as r:
-                data = r.read()
-            result["md5"] = MD5(data).hexdigest()
-            result["size"] = osPath.getsize(path)
-            result["path"] = path_pre
-            result['name'] = name
-            result["available"] = True
-            result["parts"] = FileTransportHelper.getTotalPart(result['size'])
+        try:
+            if path and osPath.isfile(path) and FileTransportHelper.checkFileSize(osPath.getsize(path)):
+                path_pre, name = osPath.split(osPath.abspath(path))
+                with open(path, 'rb') as r:
+                    data = r.read()
+                result["md5"] = MD5(data).hexdigest()
+                result["size"] = osPath.getsize(path)
+                result["path"] = path_pre
+                result['name'] = name
+                result["available"] = True
+                result["parts"] = FileTransportHelper.getTotalPart(result['size'])
+        except PermissionError:
+            pass
         queue.put(json.dumps(result)) if queue is not None else None
         return result
 
@@ -702,7 +708,7 @@ class Executor:
                     3:不存在目标文件, 4:md5校验失败, 5:文件范围无效(或文件过大),
                     6:文件写入失败(rewrite为False且文件已存在时)
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         action: str = cmdObj.get('action')
         md5Code: str = cmdObj.get('md5')
         rewrite: str = cmdObj.get('rewrite')
@@ -743,7 +749,7 @@ class Executor:
                     if totalParts:
                         rawData = b''
                         for i in range(totalParts):
-                            if FileTransportHelper.checkFileSize(len(rawData)):  # 检查读取内容是否过大
+                            if not FileTransportHelper.checkFileSize(len(rawData)):  # 检查读取内容是否符合要求
                                 result = 5
                             if result == 0:  # 若文件读取大小仍可接收
                                 with open(path + f".part{i}", 'rb') as r:
@@ -803,7 +809,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
-        print(f'任务 {cmdObj.get("type")} 执行', file=cls.output)
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         result = 0 if os.system('shutdown -a') else 1
         queue.put(result) if queue is not None else None
         return result
@@ -837,7 +843,7 @@ class Executor:
                 result = 0
             else:
                 delaySwitch = f"-t {delay}" if delay else ""
-                print(f'shutdown {switch} {delaySwitch}')
+                print(f'shutdown {switch} {delaySwitch}', file=Config.output)
                 result = 0 if os.system(f'shutdown {switch} {delaySwitch}') else 1
         queue.put(result) if queue is not None else None
         return result

@@ -91,18 +91,18 @@ class ClientManager:
                       )
             if all(result):
                 self.authenticated = True
-                print(f'{self.address} 登录成功', file=self.output)
+                print(f'{self.address} 登录成功', file=Config.output)
                 self.sendLine(b'1', encrypt=False)
             else:
                 print(f'{self.address} 登录失败, '
                       f'name:{(name, result[0])}, '
                       f'version:{(version, result[1])}, '
                       f'time:{stamp, result[2]}, '
-                      f'md5:{result[3]}.', file=self.output)
+                      f'md5:{result[3]}.', file=Config.output)
                 self.authenticated = False
                 self.sendLine(b'0', encrypt=False)
         except Exception as e:
-            print(f'{self.address} 登录出现异常 {type(e)}', file=self.output)
+            print(f'{self.address} 登录出现异常 {type(e)}', file=Config.output)
             self.authenticated = False
             self.sendLine(b'0', encrypt=False)
 
@@ -156,16 +156,16 @@ class ClientManager:
         # data = Encryptor.toBase64(data) if encrypt else data
         data += b'\n'
         if len(data) > Config.longestCommand:
-            print(f"[失败:过长] 发送 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
+            print(f"[失败:过长] 发送 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
             return
         try:
             block = self.socket.getblocking()
             self.socket.setblocking(True)
             self.socket.sendall(data)
             self.socket.setblocking(block)
-            print(f"[成功] 发送长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
+            print(f"[成功] 发送长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
         except Exception:
-            print(f"[失败:异常] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=self.output)
+            print(f"[失败:异常] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
             self.close()
 
     # def isAlive(self):
@@ -220,16 +220,16 @@ class ClientManager:
                     data = f"{data[:Config.networkIOInfoMaxLength // 2]}...{data[max(Config.networkIOInfoMaxLength // 2, len(data) - Config.networkIOInfoMaxLength // 2):]}" if len(
                         data) > Config.networkIOInfoMaxLength else data
                     print("接收到：来自{from_}，长度：{length}，内容（已解码）：{data}"
-                          .format(length=len(data), from_=self.address, data=data), file=self.output
+                          .format(length=len(data), from_=self.address, data=data), file=Config.output
                           )
                 except Exception:
                     data = result
-                    data = data[:Config.networkIOInfoMaxLength // 2] + b"..." + data[
-                                                                                max(Config.networkIOInfoMaxLength // 2,
-                                                                                    len(data) - Config.networkIOInfoMaxLength // 2):] if len(
-                        data) > Config.networkIOInfoMaxLength else data
+                    data = (data[:Config.networkIOInfoMaxLength // 2] + b"..."
+                            + data[max(Config.networkIOInfoMaxLength // 2,
+                                       len(data) - Config.networkIOInfoMaxLength // 2):] if len(
+                        data) > Config.networkIOInfoMaxLength else data)
                     print("接收到：来自{from_}，长度：{length}，内容（原始）：{data}"
-                          .format(length=len(data), from_=self.address, data=data), file=self.output
+                          .format(length=len(data), from_=self.address, data=data), file=Config.output
                           )
         return result
 
@@ -256,7 +256,6 @@ class ClientManager:
 class SocketServer:
     def __init__(self):
         self.alive = True
-        self.output = sys.stdout
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clientManagers: Dict[tuple, ClientManager] = {}
@@ -264,7 +263,7 @@ class SocketServer:
 
     def close(self):
         self.alive = False
-        print('服务器关闭', file=self.output)
+        print('服务器关闭', file=Config.output)
         self.closeClients()
         self.socket.close()
         self.socket6.close()
@@ -287,13 +286,13 @@ class SocketServer:
         Config.nowIP = get_host_ip()
         Config.port = self.socket.getsockname()[-1]
         print(f'服务器开启，开启于{(Config.nowIP, Config.port)}',
-              file=self.output)
+              file=Config.output)
 
     def accept(self):
         try:
             client, address = self.socket.accept()
             self.clientManagers[address] = ClientManager(client, address)
-            print(f'{address} 连接', file=self.output) if Config.reportConnection else None
+            print(f'{address} 连接', file=Config.output) if Config.reportConnection else None
         except (BlockingIOError, socket.timeout):
             pass
 
@@ -301,7 +300,7 @@ class SocketServer:
         try:
             client, address = self.socket6.accept()
             self.clientManagers[address] = ClientManager(client, address)
-            print(f'{address} 连接', file=self.output) if Config.reportConnection else None
+            print(f'{address} 连接', file=Config.output) if Config.reportConnection else None
         except (BlockingIOError, socket.timeout):
             pass
 
@@ -311,7 +310,7 @@ class SocketServer:
             if not clientManager.alive:
                 delete.append(address)
         for address in delete:
-            print(f'{address} 断开', file=self.output) if self.clientManagers[address].authenticated else None
+            print(f'{address} 断开', file=Config.output) if self.clientManagers[address].authenticated else None
             self.clientManagers.pop(address)
 
     def getClientManager(self, address: tuple):

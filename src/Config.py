@@ -1,6 +1,8 @@
 # coding=utf-8
+import io
 import json
 import os
+import sys
 from typing import Optional
 import re
 
@@ -9,7 +11,7 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0.20220416'  # 当前版本号
+    version = '1.0.20220423'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码（QQ邮箱）
     password = 'MyComputerAzazo1'  # 锁屏默认密码
@@ -20,25 +22,49 @@ class Config:
     authenticationTimeoutMilli = 10000  # 鉴权过期时间（毫秒）
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
-    usingMultiprocessing = False  # 是否使用多进程（慢）
     key = "as437pdjpa97fdsa5ytfjhzfwa".encode(encoding)  # 默认传输加密密钥（随 outerConfigFile.key 变化）
+    usingMultiprocessing = False  # 是否使用多进程（慢）
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     reportConnection = True  # 是否提示有新的连接建立（非Authenticate）
+    logToFile = True  # 是否生成日志
     processQueueMaxsize = 100  # 多进程时 Queue 最大尺寸
     fileTransportMaxSize = 524288  # 传输文件内容(原)最大大小（单个包）（字节）
     fileOperateMaxSize = 1024 * 1024 * 256  # 最大传输的文件大小（post 和 get）（总）（字节）
     networkIOInfoMaxLength = 100  # 报告接收与发送消息最长长度（超过则省略）
-    variablesFile = 'vars.json'
-    outerConfigFile = 'config.txt'
+    variablesFile = 'Vars.json'  # 临时变量文件
+    outerConfigFile = 'Config.txt'  # 外部配置文件
+    logFile = "Main.log"  # 正常输出文件
+    logErrFile = "MainErr.log"  # 异常输出文件
     initialVars = {
         "blockTaskmgr": False,
         "mouseLock": False,
         "instance": -1  # 用来告知实例PID
     }
+    output = sys.stdout  # 正常输出 (会被运行中修改)
+    errOutput = sys.stderr  # 异常输出 (会被运行中修改)
 
     @property
     def socketTimeoutMilli(self) -> int:
         return self.socketTimeoutSec * 1000
+
+
+class Logger(io.StringIO):
+    def __init__(self, logFile: str, stdStream=sys.stdout):
+        self.file = open(logFile, "w", encoding=Config.encoding)  # 要在Config类创建之后使用
+        self.stdStream = stdStream  # 标准流（用于同时输出命令行）
+        super(Logger, self).__init__()
+
+    def __del__(self):
+        try:
+            self.file.close()
+        except Exception:
+            pass
+
+    def write(self, __s: str) -> int:
+        self.stdStream.write(__s) if self.stdStream else None
+        rst = self.file.write(__s)
+        self.file.flush()
+        return rst
 
 
 def init():
@@ -55,8 +81,13 @@ def init():
     outerKey = readOuterConfig().get("key")
     if isinstance(outerKey, str):
         Config.key = outerKey.encode(Config.encoding)  # 读取用户设置的密码取代默认密码
-    print('初始路径:', Config.originPath)
-    print('版本:', Config.version)
+
+    if Config.logToFile:
+        Config.output = Logger(Config.logFile, sys.stdout)
+        Config.errOutput = Logger(Config.logErrFile, sys.stderr)
+
+    print('初始路径:', Config.originPath, file=Config.output)
+    print('版本:', Config.version, file=Config.output)
 
 
 def readOuterConfig() -> dict:
@@ -96,7 +127,7 @@ def clearVar(say=True):
         os.chdir(Config.originPath)
         os.remove(Config.variablesFile)
     except FileNotFoundError:
-        print(Config.variablesFile, '清除失败') if say else None
+        print(Config.variablesFile, '清除失败', file=Config.output) if say else None
 
 
 def switchesParse(sys_args: list):
@@ -104,12 +135,20 @@ def switchesParse(sys_args: list):
     分析启动参数
     -F/f 强制关闭前面的实例然后启动
     """
-    switches = []
+    usedSwitches = []
     for arg in sys_args:
         if arg.lower() == '-f':
-            clearVar(False)
-            switches.append(arg)
-    for switch in switches:
+            if hasInstance():
+                pid = readVar().get("instance")
+            else:
+                pid = -1
+            clearVar(say=False)
+            usedSwitches.append(arg)
+            while pid != -1:
+                matchedTasks = os.popen(f'tasklist /FI "PID eq {pid}"').read().lower()
+                if not bool(re.search(r'pythonw?\.exe', matchedTasks)):
+                    break
+    for switch in usedSwitches:
         sys_args.remove(switch)
 
 
