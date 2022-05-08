@@ -70,9 +70,10 @@ if __name__ == '__main__':
     #     {'type': 'startFile', 'file': r"D:\CloudMusic\一丝不挂 - 陈奕迅.mp3"}
     # ).encode(Config.encoding)))
 
-    pprint.pprint(send(json.dumps(
-        {'type': 'surfWebsite', 'search': "你好", "using": "windows-default"}
-    ).encode(Config.encoding)))
+    # 浏览网页
+    # pprint.pprint(send(json.dumps(
+    #     {'type': 'surfWebsite', 'search': "你好", "using": "windows-default"}
+    # ).encode(Config.encoding)))
     # pprint.pprint(send(json.dumps(
     #     {'type': 'surfWebsite', 'url': "www.baidu.com", "using": "firefox"}
     # ).encode(Config.encoding)))
@@ -209,6 +210,28 @@ if __name__ == '__main__':
 
     # pprint.pprint(send(json.dumps({
     #     'type': 'lockScreen', "password": 'hello', "maxWrongTimes": 100
+    # }).encode(Config.encoding)))
+
+    # 鼠标控制
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'moveBy', "x": 100, "y": 100
+    # }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'moveTo', "x": 1365, "y": 767
+    # }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'scroll', "x": 1, "y": -10
+    # }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'click', "button": 2, "clickTimes": 10, "clickDuration": 500,
+    #     "clickInterval": 100
+    # }).encode(Config.encoding)))
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'press', "button": 1
+    # }).encode(Config.encoding)))
+    # time.sleep(1)
+    # pprint.pprint(send(json.dumps({
+    #     'type': 'controlMouse', "action": 'release', "button": 1
     # }).encode(Config.encoding)))
 
     try:

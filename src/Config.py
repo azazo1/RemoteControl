@@ -11,7 +11,7 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0.20220501'  # 当前版本号
+    version = '1.0.20220507'  # 当前版本号
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码（QQ邮箱）
     password = 'MyComputerAzazo1'  # 锁屏默认密码
@@ -23,6 +23,8 @@ class Config:
     loopingRate = 60  # 每秒循环进行次数
     encoding = 'utf-8'  # 编码
     key = "as437pdjpa97fdsa5ytfjhzfwa".encode(encoding)  # 默认传输加密密钥（随 outerConfigFile.key 变化）
+    controlMouseAvailable = False  # 是否允许 controlMouse 命令（高危）
+    executeAvailable = False  # 是否允许 execute 命令（高危）
     usingMultiprocessing = False  # 是否使用多进程（慢）
     clearDeadClient = True  # 服务器是否定期删除断开连接的客户端
     reportConnection = True  # 是否提示有新的连接建立（非Authenticate）

@@ -1,4 +1,5 @@
 # coding=utf-8
+import io
 import json
 import multiprocessing
 import os
@@ -625,11 +626,11 @@ class Executor:
         获取文件信息
         :param cmdObj: path: 文件位置(str)
         :param queue: 文件信息 JSON 对象：{
-                "available": 是否成功获取(bool，若为 False 则后面几项为 None),
-                "path": 储存绝对路径(str),
-                "name": 文件名(str),
-                "size": 文件字节数(int),
-                "md5": 文件内容 MD5 码,
+                "available"(bool): 是否成功获取(若为 False 则后面几项为 None),
+                "path"(str): 储存绝对路径,
+                "name"(str): 文件名,
+                "size"(int): 文件字节数,
+                "md5": 文件内容 MD5 码(小写),
                 "parts": 文件分块数量(由 size 和 fileTransportMaxSize 决定)(int)
             }
             若非文件、文件过大则返回对应空值的 JSON 对象
@@ -651,7 +652,7 @@ class Executor:
                 path_pre, name = osPath.split(osPath.abspath(path))
                 with open(path, 'rb') as r:
                     data = r.read()
-                result["md5"] = MD5(data).hexdigest()
+                result["md5"] = MD5(data).hexdigest().lower()
                 result["size"] = osPath.getsize(path)
                 result["path"] = path_pre
                 result['name'] = name
@@ -668,24 +669,24 @@ class Executor:
         传送部分文件, 由于有的文件过大会将内存撑爆，会禁止大文件读写
         :param cmdObj:  action:执行的动作（可为后面字典的键）(str)
                             {"post":"向服务器传送文件", "get":”从服务器中读取文件“.
-                        若 action 为 post 则需提供 md5: 文件内容md5校对码（base64处理前）(str).
-                        若 action 为 post 则需提供 data: base64处理后的文件内容(str).
-                        若 action 为 post 则需提供 part: 传输的“部分”的序号(int, 从0开始)
-                        若 action 为 post 则需提供 name: 传送的文件的文件名(str).
-                        若 action 为 post 则需提供 path: 传送的文件需存放的路径（无需文件名）(str).
-                        若 action 为 merge 则需提供 path: 需要合并的文件(str, 包括其路径与文件名, 不用加".part")
-                        若 action 为 merge 则可提供 rewrite: 是否重写(bool, 默认为True).
-                        若 action 为 get 则需提供 path: 传送的文件的文件路径(包括路径和文件名)(str).
-                        若 action 为 get 则需提供 part: 传送文件的分块序号(从一开始)(int)
+                        若 action 为 post 则需提供 md5(str): 文件内容md5校对码 (小写) (base64处理前).
+                        若 action 为 post 则需提供 data(str): base64处理后的文件内容.
+                        若 action 为 post 则需提供 part(int, 从0开始): 传输的“部分”的序号
+                        若 action 为 post 则需提供 name(str): 传送的文件的文件名.
+                        若 action 为 post 则需提供 path(str): 传送的文件需存放的路径(无需文件名).
+                        若 action 为 merge 则需提供 path(str): 需要合并的文件 (包括其路径与文件名, 不用加".part")
+                        若 action 为 merge 则可提供 rewrite(bool, 默认为True): 是否重写.
+                        若 action 为 get 则需提供 path(str): 传送的文件的文件路径(包括路径和文件名).
+                        若 action 为 get 则需提供 part(int): 传送文件的分块序号(从一开始)
         :param queue:   若 action 为 get：
                             成功传输则为一个JSON字典(文件具体信息在 fileDetail 命令中提供)：
                                 {
-                                    "path": 文件原路径(与 请求 相同)(str),
-                                    "data": base64处理过的文件内容(str),
-                                    "md5": 文件对应内容 md5 校对码 (str),
-                                    "part": 文件分块序号(从1开始)(int),
-                                    "start": 分块首字节在整个文件的位置(int),
-                                    "state": 传输状态码(见下)(int)
+                                    "path"(str): 文件原路径(与 请求 相同),
+                                    "data"(str): base64处理过的文件内容,
+                                    "md5"(str): 文件对应内容 md5 校对码(小写),
+                                    "part"(int): 文件分块序号(从1开始),
+                                    "start"(int): 分块首字节在整个文件的位置,
+                                    "state"(int): 传输状态码(见下)
                                 }.
                             传输状态码：
                                 1:获取成功;
@@ -726,7 +727,7 @@ class Executor:
                 if len(rawData) > Config.fileTransportMaxSize:
                     result = 5
                 else:
-                    md5Value = MD5(rawData).hexdigest()
+                    md5Value = MD5(rawData).hexdigest().lower()
                     if md5Value != md5Code:
                         result = 4
                     else:
@@ -791,7 +792,7 @@ class Executor:
                     r.seek(start)
                     rawData = r.read(length)
                 encodedData = Encryptor.toBase64(rawData).decode(Config.encoding)
-                md5Code = MD5(rawData).hexdigest()
+                md5Code = MD5(rawData).hexdigest().lower()
                 queueResult["md5"] = md5Code
                 queueResult["data"] = encodedData
                 queueResult["start"] = start
@@ -828,6 +829,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         action = cmdObj.get('action')
         delay = cmdObj.get('delay')
         result = 0
@@ -857,12 +859,71 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         keyboard = cmdObj.get('keyboard')  # 难以实现
         mouse = cmdObj.get('mouse')
         if mouse is not None:
             InputLocker.setMouse(mouse)
         queue.put(1) if queue is not None else None
         return 1
+
+    @classmethod
+    def controlMouse(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
+        """
+        控制鼠标
+        :param cmdObj:  action(enum[str]):  "moveBy": 鼠标相对位移
+                                            "moveTo": 鼠标移动到绝对坐标
+                                            "click": 鼠标按键单击
+                                            "press": 鼠标按键按下
+                                            "release": 鼠标按键松开
+                                            "scroll": 鼠标滚轮
+                        x(int): x 坐标, 若 action 为 moveBy 则 为相对移动坐标(正数向右)
+                                                 为 moveTo 则为绝对坐标
+                                                 为 scroll 则为水平方向的滚动距离(正数向右)
+                                                 为其他则无需填写
+                        y(int): y 坐标, 若 action 为 moveBy 则 为相对移动坐标(正数向下)
+                                                 为 moveTo 则为绝对坐标
+                                                 为 scroll 则为垂直方向的滚动距离(正数向上)
+                                                 为其他则无需填写
+                        button(int): 鼠标按键(0:左键,1 :中键, 2:右键), 只有在 action 为 click, press 或 release 时生效
+
+                        若 action 为 click, 以下内容可填写:
+                        clickDuration(int, ms): 鼠标单击时长, 默认为 50 (ms)
+                        clickInterval(int, ms): 鼠标单击间隔, 默认为 20 (ms)
+                        clickTimes(int): 鼠标单击次数, 默认为 1
+
+                        以上参数默认选项触发条件: 没填写或参数值为 0
+        :param queue: 1:成功, 0:失败
+        :return: 1:成功, 0:失败
+        """
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
+        result = 0
+        try:
+            button = cmdObj.get("button")
+            duration = cmdObj.get("clickDuration") or 50
+            interval = cmdObj.get("clickInterval") or 20
+            times = cmdObj.get("clickTimes") or 1
+            action = cmdObj.get("action")
+            x = cmdObj.get("x")
+            y = cmdObj.get("y")
+
+            if action == "moveBy":
+                result = MouseController.moveBy((int(x), int(y)))
+            elif action == "moveTo":
+                result = MouseController.moveTo((int(x), int(y)))
+            elif action == "click":
+                result = MouseController.click(int(button), int(duration), int(times), int(interval))
+            elif action == "press":
+                result = MouseController.press(int(button))
+            elif action == "release":
+                result = MouseController.release(int(button))
+            elif action == "scroll":
+                result = MouseController.scroll((int(x), int(y)))
+        except Exception:
+            traceback.print_exc(file=Config.errOutput)
+            result = 0
+        queue.put(result) if queue is not None else None
+        return result
 
     @classmethod
     def takePhoto(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
@@ -875,6 +936,7 @@ class Executor:
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
         action = cmdObj.get('action')
         send = cmdObj.get('send')
         if action == 'photo':
@@ -890,6 +952,40 @@ class Executor:
         else:
             result = 0
         queue.put(result) if queue is not None else None
+        return result
+
+    @classmethod
+    def execute(cls, cmdObj: Dict, queue: Union[multiprocessing.Queue, MyThreadQueue] = None) -> int:
+        """
+        执行 python 语句
+        :param cmdObj: content(str): 要执行的 python 语句
+        :param queue: output(str): 标准输出流的输出, error(str): 标准异常流的输出
+        :return: 1:命令成功执行而没有报错, 0:命令执行报错
+        """
+        print(f'任务 {cmdObj.get("type")} 执行', file=Config.output)
+        content = cmdObj.get('content')
+        out, err = io.StringIO(), io.StringIO()
+        stdout = sys.stdout
+        stderr = sys.stderr
+        sys.stdout = out
+        sys.stderr = err
+        try:
+            exec(content)
+            result = 1
+        except Exception:
+            err.write(traceback.format_exc())
+            result = 0
+        finally:
+            sys.stdout = stdout
+            sys.stderr = stderr
+            out.seek(0)
+            err.seek(0)
+            print(out.read(), file=Config.output)
+            print(err.read(), file=Config.errOutput)
+        out.seek(0)
+        err.seek(0)
+        queue.put(json.dumps({"output": out.read(),
+                              "error": err.read()})) if queue is not None else None
         return result
 
     @classmethod
@@ -915,7 +1011,9 @@ class Executor:
                 'shutdown': cls.shutdown,
                 'inputLock': cls.inputLock,
                 'takePhoto': cls.takePhoto,
-                'getBrowsers': cls.getBrowsers
+                'getBrowsers': cls.getBrowsers,
+                'execute': cls.execute if Config.executeAvailable else None,
+                'controlMouse': cls.controlMouse if Config.controlMouseAvailable else None,
             }
         return cls._functionMap
 
@@ -923,6 +1021,7 @@ class Executor:
 # 添加更多功能，并修改functionMap，并添加相应进程组
 
 class InputLocker:
+    """用于锁定鼠标和键盘输入"""
     mouseController = pynput.mouse.Controller()
 
     # @classmethod
@@ -938,6 +1037,70 @@ class InputLocker:
         var = readVar()
         if var and var.get('mouseLock'):
             cls.mouseController.position = (0, 0)
+
+
+class MouseController:
+    """用于控制鼠标"""
+    controller = pynput.mouse.Controller()
+    buttons = {0: pynput.mouse.Button.left, 1: pynput.mouse.Button.middle, 2: pynput.mouse.Button.right}
+
+    @classmethod
+    def moveBy(cls, val: Tuple[int, int]):
+        """
+        使鼠标移动相对坐标
+        :param val: (x 相对坐标, y 相对坐标)
+        """
+        cls.controller.move(*val)
+        return 1
+
+    @classmethod
+    def moveTo(cls, val: Tuple[int, int]):
+        """
+        使鼠标移动到绝对坐标
+        :param val: (x 绝对坐标, y 绝对坐标)
+        """
+        cls.controller.position = val
+        return 1
+
+    @classmethod
+    def click(cls, button: int, duration: int, times: int, interval: int):
+        """
+        鼠标单击
+        :param button: 0:左键, 1:中键, 2:右键
+        :param duration: 单击时长 (ms)
+        :param times: 单击次数
+        :param interval: 单击间隔 (ms)
+        :return: 是否成功单击(0:False, 1:True)
+        """
+        button = cls.buttons.get(button)
+        if not button:
+            return 0
+        for i in range(times):
+            cls.controller.press(button)
+            time.sleep(duration * 0.001)
+            cls.controller.release(button)
+            time.sleep(interval * 0.001)
+        return 1
+
+    @classmethod
+    def press(cls, button: int):
+        """按下鼠标按键"""
+        button = cls.buttons.get(button)
+        cls.controller.press(button)
+        return 1
+
+    @classmethod
+    def release(cls, button: int):
+        """松开鼠标按键"""
+        button = cls.buttons.get(button)
+        cls.controller.release(button)
+        return 1
+
+    @classmethod
+    def scroll(cls, val: Tuple[int, int]):
+        """模拟鼠标滚轮"""
+        cls.controller.scroll(*val)
+        return 1
 
 
 class BackgroundStopper:
