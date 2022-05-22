@@ -932,7 +932,7 @@ class Executor:
         :param cmdObj:  action(str): 从 photo, shortcut 中选择
                             photo: 用照相机拍照
                             shortcut: 屏幕截图
-                        send(bool): 是否发送至邮箱
+                        send(bool): 是否发送至邮箱, 默认为 False
         :param queue: 1:成功, 0:失败
         :return: 1:成功, 0:失败
         """
