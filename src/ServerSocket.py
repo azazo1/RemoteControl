@@ -84,9 +84,10 @@ class ClientManager:
         nowTime = time.time()
         try:
             result = (name == Config.name,
-                      version == Config.version,
                       (nowTime * 1000 // 1 < Config.authenticationTimeoutMilli + stamp),
-                      md5((Config.name + Config.version + Config.key.decode(Config.encoding)
+                      version in Config.availableClientVersion,  # 是否在可用客户端版本列表中
+                      # 此处使用的是客户端提供的版本号, 版本号匹配问题在上一个判断条件中解决
+                      md5((Config.name + version + Config.key.decode(Config.encoding)
                            + str(stamp)).encode(Config.encoding)).hexdigest() == md5_
                       )
             if all(result):
