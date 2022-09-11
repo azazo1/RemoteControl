@@ -93,7 +93,7 @@ class ClientManager:
             if all(result):
                 self.authenticated = True
                 print(f'{self.address} 登录成功', file=Config.output)
-                self.sendLine(b'1', encrypt=False)
+                self.sendLine(b'1', encrypt=False)  # 如果返回值被加密, 简单的密码会被暴力破解
             else:
                 print(f'{self.address} 登录失败, '
                       f'name:{(name, result[0])}, '

@@ -1,6 +1,5 @@
 # coding=utf-8
 import json
-import pprint
 import socket
 import time
 from hashlib import md5

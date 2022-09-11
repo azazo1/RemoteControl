@@ -11,8 +11,8 @@ class Config:
     nowIP = '127.0.0.1'  # （动态变化）服务器绑定的ip地址
     port = 2004  # 服务器绑定端口
     name = 'RemoteControl'  # 此项目名
-    version = '1.0.20220829'  # 当前版本号
-    availableClientVersion = ['1.0.20220507', '1.0.20220522', '1.0.20220829']
+    version = '1.0.20220911'  # 当前版本号
+    availableClientVersion = ['1.0.20220507', '1.0.20220522', '1.0.20220829', '1.0.20220911']  # 支持的客户端版本号
     originPath = '.'  # 启动路径（会变化）
     user = ('', '')  # 图片发送邮箱 SMTP 账号密码（QQ邮箱）
     password = 'MyComputerAzazo1'  # 锁屏默认密码
