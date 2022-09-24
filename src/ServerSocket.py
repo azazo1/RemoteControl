@@ -2,6 +2,7 @@
 import json
 import multiprocessing
 import os
+import pprint
 import re
 import socket
 import sys
@@ -165,8 +166,8 @@ class ClientManager:
             self.socket.sendall(data)
             self.socket.setblocking(block)
             print(f"[成功] 发送长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
-        except Exception:
-            print(f"[失败:异常] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
+        except Exception as e:
+            print(f"[失败:{e.__class__}] 长度:{len(data)} 内容:{data_info} 到 {self.address}", file=Config.output)
             self.close()
 
     # def isAlive(self):
@@ -184,27 +185,28 @@ class ClientManager:
         """读取一行,若未到一行则返回空bytes"""
         if not self.alive:
             return b''
-        try:
-            getBytes = self.socket.recv(Config.readRange)
-            if getBytes == b'' and not self.bufLines:
+        if not self.bufLines:  # 缓存命令用完时才会进行 套接字读取(阻塞) , 解决了缓存命令没用完但套接字阻塞导致命令堆积的问题.
+            try:
+                getBytes = self.socket.recv(Config.readRange)
+                if getBytes == b'':
+                    self.alive = False
+                    # raise ConnectionAbortedError('连接断开')
+            except (socket.timeout, BlockingIOError):
+                getBytes = b''
+            except ConnectionError:
+                getBytes = b''
                 self.alive = False
-                # raise ConnectionAbortedError('连接断开')
-        except (socket.timeout, BlockingIOError):
-            getBytes = b''
-        except ConnectionError:
-            getBytes = b''
-            self.alive = False
-        if getBytes.find(b'\n') != -1:
-            lines = getBytes.split(b'\n')
-            self.bufLines.extend(filterNotTrue([self.lineBuf + lines[0]]))
-            self.lineBuf = b''
-            if getBytes.endswith(b'\n'):
-                self.bufLines.extend(filterNotTrue(lines[1:]))
+            if getBytes.find(b'\n') != -1:
+                lines = getBytes.split(b'\n')
+                self.bufLines.extend(filterNotTrue([self.lineBuf + lines[0]]))
+                self.lineBuf = b''
+                if getBytes.endswith(b'\n'):
+                    self.bufLines.extend(filterNotTrue(lines[1:]))
+                else:
+                    self.bufLines.extend(filterNotTrue(lines[1:-1]))
+                    self.lineBuf = lines[-1]
             else:
-                self.bufLines.extend(filterNotTrue(lines[1:-1]))
-                self.lineBuf = lines[-1]
-        else:
-            self.lineBuf += getBytes
+                self.lineBuf += getBytes
         try:
             result = self.bufLines.pop(0)
         except IndexError:

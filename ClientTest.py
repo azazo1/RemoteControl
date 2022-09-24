@@ -3,14 +3,15 @@ import json
 import socket
 import time
 from hashlib import md5
+import pprint
 
 from src.Config import Config
 import src.Config as ConfigModule
 from src.Encryptor import Encryptor
 
 
-def send(data: bytes, encode=True):
-    sock.sendall((Encryptor.encryptToBase64(data) if encode else data) + b'\n')
+def send(data: bytes, encode=True, multiplies=1):
+    [sock.sendall(((Encryptor.encryptToBase64(data) if encode else data) + b'\n')) for _ in range(multiplies)]
     print('信息发送完毕', Encryptor.decryptFromBase64(Encryptor.encryptToBase64(data)))
     get = sock.recv(Config.readRange)
     return Encryptor.decryptFromBase64(get) if encode else get
@@ -233,8 +234,8 @@ if __name__ == '__main__':
     #     'type': 'controlMouse', "action": 'release', "button": 1
     # }).encode(Config.encoding)))
 
+    input("确认退出?")
     try:
         sock.close()
     except Exception:
         pass
-    input("确认退出?")
